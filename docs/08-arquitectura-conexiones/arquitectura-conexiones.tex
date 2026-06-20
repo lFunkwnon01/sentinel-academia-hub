@@ -1,0 +1,488 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage[margin=2cm]{geometry}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, backgrounds, calc, shadows}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{enumitem}
+\usepackage{tcolorbox}
+\usepackage{booktabs}
+\usepackage{fancyhdr}
+\usepackage{graphicx}
+\usepackage{amssymb}
+
+% Color palette
+\definecolor{awsorange}{HTML}{FF9900}
+\definecolor{awspurple}{HTML}{8C4FFF}
+\definecolor{awsgreen}{HTML}{3F8624}
+\definecolor{ocired}{HTML}{C74634}
+\definecolor{clientblue}{HTML}{0070BA}
+\definecolor{datared}{HTML}{CC0000}
+\definecolor{lightbg}{HTML}{F4F6F9}
+\definecolor{accent}{HTML}{2563EB}
+
+% Styles
+\tikzset{
+  awsbox/.style={
+    rectangle, rounded corners=4pt, draw=awsorange, very thick,
+    fill=orange!5, minimum width=3.2cm, minimum height=0.8cm,
+    align=center, font=\small\bfseries, text width=3.2cm
+  },
+  cognitobox/.style={
+    rectangle, rounded corners=4pt, draw=awspurple, very thick,
+    fill=purple!5, minimum width=3.2cm, minimum height=0.8cm,
+    align=center, font=\small\bfseries, text width=3.2cm
+  },
+  s3box/.style={
+    rectangle, rounded corners=4pt, draw=awsgreen, very thick,
+    fill=green!5, minimum width=3.2cm, minimum height=0.8cm,
+    align=center, font=\small\bfseries, text width=3.2cm
+  },
+  snsbox/.style={
+    rectangle, rounded corners=4pt, draw=datared, very thick,
+    fill=red!5, minimum width=3.2cm, minimum height=0.8cm,
+    align=center, font=\small\bfseries, text width=3.2cm
+  },
+  ocibox/.style={
+    rectangle, rounded corners=4pt, draw=ocired, very thick,
+    fill=orange!5, minimum width=3.2cm, minimum height=0.8cm,
+    align=center, font=\small\bfseries, text width=3.2cm
+  },
+  clientbox/.style={
+    rectangle, rounded corners=4pt, draw=clientblue, very thick,
+    fill=blue!5, minimum width=3.2cm, minimum height=0.8cm,
+    align=center, font=\small\bfseries, text width=3.2cm
+  },
+  arrow/.style={-{Latex[length=2.5mm,width=2mm]}, thick, color=accent},
+  arrowasync/.style={-{Latex[length=2.5mm,width=2mm]}, thick, color=datared, dashed},
+  arrownote/.style={font=\scriptsize\itshape, fill=white, inner sep=2pt, align=center}
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small Sentinel AcademIA}
+\fancyhead[R]{\small Arquitectura - Conexiones}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% Custom commands
+\newcommand{\arrowlabel}[1]{\textcolor{accent}{\scriptsize\bfseries #1}}
+\newcommand{\flowarrow}[2]{\draw[arrow] (#1) -- node[arrownote, above] {#2} (#1 -| #2);}
+
+\title{\Huge\bfseries Sentinel AcademIA \\[0.3cm]
+       \Large Conexiones de Arquitectura \\
+       \large\textit{Guía paso a paso para conectar todos los servicios}}
+\author{Documento técnico}
+\date{\today}
+
+\begin{document}
+
+% ===== PORTADA =====
+\begin{titlepage}
+\centering
+\vspace*{2cm}
+{\Huge\bfseries SENTINEL ACADEMIA}\\[0.5cm]
+{\Large Plataforma Universitaria de Quejas con IA}\\[2cm]
+
+\rule{\textwidth}{1pt}\\[0.5cm]
+{\huge\bfseries Conexiones de Arquitectura}\\[0.3cm]
+{\Large\textit{Guía paso a paso}}\\[0.5cm]
+\rule{\textwidth}{1pt}\\[2cm]
+
+\begin{tcolorbox}[colback=lightbg, colframe=accent, width=0.85\textwidth, arc=3mm]
+\textbf{Resumen:} Este documento describe cómo conectar todos los servicios
+de la arquitectura de Sentinel AcademIA: desde el navegador del usuario
+hasta los servicios de AWS (Lambda, S3, Cognito, SNS) y Oracle Cloud
+Infrastructure (Generative AI, Document AI).
+\end{tcolorbox}
+
+\vspace{1cm}
+{\large Backend: \textbf{Python 3.12} en AWS Lambda} \\
+{\large Frontend: \textbf{Vue 3 + TypeScript} en S3} \\
+{\large LLM: \textbf{Cohere Command R} vía OCI} \\[1cm]
+{\large \today}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% ===== 1. RESUMEN =====
+\section{Resumen de la Arquitectura}
+
+Sentinel AcademIA es una plataforma \textbf{serverless multi-tenant} para
+gestión de quejas universitarias con análisis automático de IA.
+La arquitectura se divide en \textbf{seis zonas}:
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Cliente (ClientEdge)}: navegador del usuario, frontend Vue 3
+  \item \textbf{AWS Lambda} (10 funciones): lógica de negocio serverless
+  \item \textbf{AWS Cognito}: autenticación de usuarios
+  \item \textbf{AWS S3 + DynamoDB + SQS}: almacenamiento y colas
+  \item \textbf{AWS SNS + Email}: notificaciones a las autoridades
+  \item \textbf{Oracle OCI}: LLM (Cohere) + Document AI (OCR)
+\end{enumerate}
+
+\newpage
+% ===== 2. DIAGRAMA COMPLETO =====
+\section{Diagrama Completo de Arquitectura}
+
+\begin{figure}[h!]
+\centering
+\begin{tikzpicture}[
+  font=\scriptsize,
+  node distance=0.4cm and 0.3cm,
+  every node/.style={transform shape}
+]
+
+% 4 columnas en l\'inea horizontal
+\node[clientbox, fill=blue!15] (user) at (0, 0) {Usuario\\(Navegador)};
+\node[clientbox, fill=blue!15] (vercel) at (3, 0) {Vercel / S3\\Frontend};
+\node[awsbox, fill=orange!15] (api) at (6.5, 0) {API Gateway\\+ 10 Lambdas};
+\node[ocibox, fill=orange!10] (oci) at (10, 0) {Oracle OCI\\(Cohere + DocAI)};
+
+\node[cognitobox, fill=purple!10] (cog) at (0, -1.7) {AWS Cognito\\(Auth)};
+\node[s3box, fill=green!10] (s3) at (3, -1.7) {AWS S3\\(archivos)};
+\node[awsbox, fill=blue!10] (ddb) at (6.5, -1.7) {AWS DynamoDB\\(quejas)};
+\node[snsbox, fill=red!10] (sns) at (10, -1.7) {AWS SNS\\(alertas)};
+
+% FLECHAS fila 1
+\draw[arrow] (user) -- node[arrownote, above, sloped, font=\tiny] {HTTPS GET /} (vercel);
+\draw[arrow] (vercel) -- node[arrownote, above, sloped, font=\tiny] {HTTPS API} (api);
+\draw[arrow] (api) -- node[arrownote, above, sloped, font=\tiny] {HTTPS Chat} (oci);
+
+% FLECHAS fila 2 (api a servicios AWS)
+\draw[arrow] (api) -- node[arrownote, right, font=\tiny] {JWT} (cog);
+\draw[arrow] (api) -- node[arrownote, right, font=\tiny] {presigned} (s3);
+\draw[arrow] (api) -- node[arrownote, right, font=\tiny] {PutItem} (ddb);
+\draw[arrow] (api) -- node[arrownote, right, font=\tiny] {Publish} (sns);
+
+% FLECHAS async
+\draw[arrowasync] (s3) to[bend left=20] node[arrownote, right, font=\tiny] {S3 Event} (api);
+\draw[arrow] (api) to[bend left=40] node[arrownote, left, font=\tiny] {SendMsg} (ddb);
+\draw[arrow] (sns) -- node[arrownote, right, font=\tiny] {SMTP Email} (oci);
+
+\end{tikzpicture}
+\caption{Diagrama completo de la arquitectura con todas las conexiones entre servicios.}
+\end{figure}
+
+% ===== 3. CONEXIONES PASO A PASO =====
+\section{Conexiones Paso a Paso (los 10 cables)}
+
+\newpage
+% ===== 3.1 =====
+\subsection{Conexi\'on 1: Usuario $\rightarrow$ Frontend}
+
+\begin{tcolorbox}[colback=blue!5, colframe=clientblue, title=\textbf{Desde $\rightarrow$ Hasta}]
+\textbf{Desde:} Navegador del usuario (Chrome, Firefox, Safari) \\
+\textbf{Hacia:} Frontend Vue 3 desplegado en S3 (Vercel opcional) \\
+\textbf{Protocolo:} HTTPS (puerto 443)
+\end{tcolorbox}
+
+\begin{center}
+\begin{tikzpicture}
+  \node[clientbox, fill=blue!15] (u) at (0,0) {Usuario};
+  \node[clientbox, fill=blue!15] (w) at (5,0) {Frontend Vue 3};
+  \draw[arrow] (u) -- node[arrownote, above] {\textbf{HTTPS GET /}} (w);
+\end{tikzpicture}
+\end{center}
+
+\textbf{Qu\'e datos fluyen:}
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Request:} el navegador pide \texttt{https://sentinel-app.com}
+  \item \textbf{Response:} S3/Vercel devuelve HTML, CSS, JS del frontend
+\end{itemize}
+
+\textbf{Configuraci\'on:}
+\begin{enumerate}[leftmargin=*]
+  \item Crear bucket S3: \texttt{sentinel-frontend-dev-\{account-id\}}
+  \item Habilitar \textbf{Static Website Hosting}
+  \item Configurar \textbf{Bucket Policy} para lectura p\'ublica
+  \item Subir: \texttt{aws s3 sync dist/ s3://sentinel-frontend-dev-\{id\}/}
+\end{enumerate}
+
+% ===== 3.2 =====
+\subsection{Conexi\'on 2: Usuario $\rightarrow$ API Gateway (10 Lambdas)}
+
+\begin{tcolorbox}[colback=orange!5, colframe=awsorange, title=\textbf{Desde $\rightarrow$ Hasta}]
+\textbf{Desde:} Navegador \\
+\textbf{Hacia:} API Gateway $\rightarrow$ 10 AWS Lambdas \\
+\textbf{Protocolo:} HTTPS REST
+\end{tcolorbox}
+
+\begin{center}
+\begin{tikzpicture}
+  \node[clientbox, fill=blue!15] (u) at (0,0) {Usuario};
+  \node[awsbox, fill=orange!15] (l) at (5,0) {API + 10 Lambdas};
+  \draw[arrow] (u) -- node[arrownote, above] {\textbf{HTTPS GET/POST}} (l);
+\end{tikzpicture}
+\end{center}
+
+\textbf{Las 10 Lambdas (cada una = 1 endpoint):}
+\begin{enumerate}[leftmargin=*]
+  \item \texttt{health\_check} --- GET /health
+  \item \texttt{create\_queja} --- POST /api/quejas
+  \item \texttt{get\_queja} --- GET /api/quejas/\{id\}
+  \item \texttt{list\_quejas} --- GET /api/quejas
+  \item \texttt{analyze\_queja} --- Consumer de SQS
+  \item \texttt{upload\_url} --- POST /api/quejas/\{id\}/upload-url
+  \item \texttt{file\_processor} --- Consumer de S3
+  \item \texttt{chat} --- POST /api/chat
+  \item \texttt{dashboard\_metrics} --- GET /api/dashboard/metrics
+  \item \texttt{notify\_email} --- Consumer de SNS
+\end{enumerate}
+
+% ===== 3.3 =====
+\subsection{Conexi\'on 3: Lambda $\rightarrow$ Cognito (Auth)}
+
+\begin{tcolorbox}[colback=purple!5, colframe=awspurple, title=\textbf{Desde $\rightarrow$ Hasta}]
+\textbf{Desde:} Cualquier Lambda \\
+\textbf{Hacia:} AWS Cognito User Pool \\
+\textbf{Protocolo:} HTTPS (boto3 SDK)
+\end{tcolorbox}
+
+\begin{center}
+\begin{tikzpicture}
+  \node[awsbox, fill=orange!15] (l) at (0,0) {Lambda};
+  \node[cognitobox, fill=purple!15] (c) at (5,0) {AWS Cognito};
+  \draw[arrow] (l) -- node[arrownote, above] {\textbf{JWT validate}} (c);
+\end{tikzpicture}
+\end{center}
+
+\textbf{Qu\'e datos fluyen:}
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Request:} \texttt{cognito-idp.get\_user(AccessToken=...)}
+  \item \textbf{Response:} atributos del usuario (sub, email, custom:tenant)
+\end{itemize}
+
+\textbf{Estado actual:} documentado pero el demo usa \texttt{X-Tenant-ID} en headers
+(modo single-tenant simplificado). Para producci\'on, configurar User Pool con
+atributo personalizado \texttt{custom:tenantId} y pre-token-generation Lambda.
+
+% ===== 3.4 =====
+\subsection{Conexi\'on 4: Lambda $\rightarrow$ DynamoDB (NoSQL)}
+
+\begin{tcolorbox}[colback=blue!5, colframe=clientblue, title=\textbf{Desde $\rightarrow$ Hasta}]
+\textbf{Desde:} Cualquier Lambda que lea/escriba quejas \\
+\textbf{Hacia:} DynamoDB Table \texttt{sentinel-quejas-dev} \\
+\textbf{Protocolo:} HTTPS (boto3 SDK)
+\end{tcolorbox}
+
+\begin{center}
+\begin{tikzpicture}
+  \node[awsbox, fill=orange!15] (l) at (0,0) {Lambda};
+  \node[awsbox, fill=blue!10] (d) at (5,0) {DynamoDB};
+  \draw[arrow] (l) -- node[arrownote, above] {\textbf{PutItem/Query}} (d);
+\end{tikzpicture}
+\end{center}
+
+\textbf{Esquema single-table (PK/SK):}
+\begin{lstlisting}[basicstyle=\ttfamily\footnotesize, frame=single]
+PK: TENANT#{tenantId}#QUEJA#{quejaId}
+SK: QUEJA#{quejaId}
+GSI1PK: TENANT#{tenantId}#STATUS#{status}
+GSI1SK: createdAt
+Atributos: titulo, descripcion, analysis, ...
+\end{lstlisting}
+
+% ===== 3.5 =====
+\subsection{Conexi\'on 5: Lambda $\rightarrow$ S3 (Evidencia + RAG)}
+
+\begin{tcolorbox}[colback=green!5, colframe=awsgreen, title=\textbf{Desde $\rightarrow$ Hasta}]
+\textbf{Desde:} Lambda \texttt{upload\_url}, \texttt{file\_processor} \\
+\textbf{Hacia:} S3 \texttt{sentinel-files-dev-\{account-id\}} \\
+\textbf{Protocolo:} HTTPS + presigned URLs
+\end{tcolorbox}
+
+\begin{center}
+\begin{tikzpicture}
+  \node[awsbox, fill=orange!15] (u) at (0,0) {upload\_url};
+  \node[awsbox, fill=orange!15] (f) at (0,-1.5) {file\_processor};
+  \node[s3box, fill=green!15] (s) at (6,0) {AWS S3};
+  \draw[arrow] (u) -- node[arrownote, right] {presigned URL} (s);
+  \draw[arrowasync] (s) to[bend right=20] node[arrownote, left] {S3 Event} (f);
+\end{tikzpicture}
+\end{center}
+
+\textbf{Prefijos en S3:}
+\begin{itemize}[leftmargin=*]
+  \item \texttt{tenants/\{tenantId\}/quejas/\{quejaId\}/...} (evidencia)
+  \item \texttt{tenants/\{tenantId\}/config.json} (config del tenant)
+  \item \texttt{tenant-knowledge/\{tenantId\}/\{docId\}.pdf} (PDFs del RAG)
+  \item \texttt{emails/\{id\}.html} (previews HTML)
+\end{itemize}
+
+% ===== 3.6 =====
+\subsection{Conexi\'on 6 (async): create\_queja $\rightarrow$ SQS $\rightarrow$ analyze\_queja}
+
+\begin{tcolorbox}[colback=orange!5, colframe=awsorange, title=\textbf{Desde $\rightarrow$ Hasta (ASYNC)}]
+\textbf{Desde:} Lambda \texttt{create\_queja} \\
+\textbf{Hacia:} SQS Queue $\rightarrow$ Lambda \texttt{analyze\_queja} \\
+\textbf{Protocolo:} AWS SQS (as\'incrono)
+\end{tcolorbox}
+
+\begin{center}
+\begin{tikzpicture}
+  \node[awsbox, fill=orange!15] (p) at (0,0) {create\_queja};
+  \node[awsbox, fill=orange!15] (q) at (3.5,0) {SQS Queue};
+  \node[awsbox, fill=orange!15] (a) at (7,0) {analyze\_queja};
+  \draw[arrow] (p) -- node[arrownote, above] {SendMessage} (q);
+  \draw[arrowasync] (q) -- node[arrownote, above] {poll batch} (a);
+\end{tikzpicture}
+\end{center}
+
+\textbf{Pat\'in as\'incrono:}
+\begin{itemize}[leftmargin=*]
+  \item \texttt{create\_queja} responde 202 al usuario inmediatamente
+  \item Encola el ID de la queja en SQS
+  \item \texttt{analyze\_queja} procesa en background
+  \item Si falla $\rightarrow$ DLQ (max 3 reintentos, 14 d\'ias)
+\end{itemize}
+
+% ===== 3.7 =====
+\subsection{Conexi\'on 7: analyze\_queja $\rightarrow$ OCI Cohere (LLM real)}
+
+\begin{tcolorbox}[colback=orange!5, colframe=ocired, title=\textbf{Desde $\rightarrow$ Hasta}]
+\textbf{Desde:} Lambda \texttt{analyze\_queja} \\
+\textbf{Hacia:} OCI Generative AI (Cohere Command R) \\
+\textbf{Protocolo:} HTTPS con firma RSA-SHA256
+\end{tcolorbox}
+
+\begin{center}
+\begin{tikzpicture}
+  \node[awsbox, fill=orange!15] (a) at (0,0) {analyze\_queja};
+  \node[ocibox, fill=orange!10] (o) at (6,0) {OCI Cohere};
+  \draw[arrow] (a) -- node[arrownote, above] {\textbf{HTTPS + sign}} (o);
+\end{tikzpicture}
+\end{center}
+
+\textbf{Endpoint:} \texttt{https://inference.generativeai.us-chicago-1.oci.oraclecloud.com/20231130/actions/chat}
+
+\textbf{Implementaci\'on:} \texttt{services/oci\_http\_client.py} (sin SDK de 229MB)
+usa solo \texttt{cryptography} + \texttt{urllib}.
+
+% ===== 3.8 =====
+\subsection{Conexi\'on 8: analyze\_queja $\rightarrow$ SNS $\rightarrow$ Email}
+
+\begin{tcolorbox}[colback=red!5, colframe=datared, title=\textbf{Desde $\rightarrow$ Hasta (NOTIFICACI\'ON)}]
+\textbf{Desde:} Lambda \texttt{analyze\_queja} \\
+\textbf{Hacia:} SNS Topic $\rightarrow$ Email (aracely.ayala@utec.edu.pe) \\
+\textbf{Protocolo:} SNS Publish + Email Subscription
+\end{tcolorbox}
+
+\begin{center}
+\begin{tikzpicture}
+  \node[awsbox, fill=orange!15] (a) at (0,0) {analyze\_queja};
+  \node[snsbox, fill=red!15] (s) at (4,0) {SNS Topic};
+  \node[awsbox, fill=blue!5] (e) at (8,0) {Email aracely};
+  \draw[arrow] (a) -- node[arrownote, above] {publish} (s);
+  \draw[arrow] (s) -- node[arrownote, above] {SMTP} (e);
+\end{tikzpicture}
+\end{center}
+
+\textbf{Topic:} \texttt{arn:aws:sns:us-east-1:227165337884:sentinel-alertas-dev} \\
+\textbf{Suscripci\'on:} \texttt{aracely.ayala@utec.edu.pe} (email)
+
+% ===== 3.9 =====
+\subsection{Conexi\'on 9 (async): S3 Event $\rightarrow$ file\_processor}
+
+\begin{tcolorbox}[colback=green!5, colframe=awsgreen, title=\textbf{Desde $\rightarrow$ Hasta (ASYNC)}]
+\textbf{Desde:} S3 (ObjectCreated) \\
+\textbf{Hacia:} Lambda \texttt{file\_processor} \\
+\textbf{Protocolo:} S3 Event Notification
+\end{tcolorbox}
+
+\begin{center}
+\begin{tikzpicture}
+  \node[s3box, fill=green!15] (s) at (0,0) {AWS S3};
+  \node[awsbox, fill=orange!15] (f) at (5,0) {file\_processor};
+  \draw[arrowasync] (s) -- node[arrownote, above] {ObjectCreated\\trigger} (f);
+\end{tikzpicture}
+\end{center}
+
+\textbf{Configuraci\'on:} \texttt{aws s3api put-bucket-notification-configuration}
+(SAM no permite S3 $\rightarrow$ Lambda directo por circular dep)
+
+% ===== 3.10 =====
+\subsection{Conexi\'on 10: notify\_email $\rightarrow$ S3 (HTML preview)}
+
+\begin{tcolorbox}[colback=green!5, colframe=awsgreen, title=\textbf{Desde $\rightarrow$ Hasta}]
+\textbf{Desde:} Lambda \texttt{notify\_email} (consumer SNS) \\
+\textbf{Hacia:} S3 \texttt{sentinel-emails-dev-\{id\}/emails/} \\
+\textbf{Protocolo:} S3 PutObject
+\end{tcolorbox}
+
+\begin{center}
+\begin{tikzpicture}
+  \node[awsbox, fill=orange!15] (n) at (0,0) {notify\_email};
+  \node[s3box, fill=green!15] (s) at (5,0) {AWS S3};
+  \draw[arrow] (n) -- node[arrownote, above] {PUT HTML+CSS} (s);
+\end{tikzpicture}
+\end{center}
+
+\textbf{Output:} URL p\'ublica \texttt{https://...s3.amazonaws.com/emails/\{id\}.html}
+
+% ===== 4. CONFIGURACION =====
+\section{Configuraci\'on AWS Requerida}
+
+\begin{tcolorbox}[colback=yellow!5, colframe=orange!60, title=\textbf{Resumen de servicios AWS}]
+\begin{tabular}{lll}
+\toprule
+\textbf{Servicio} & \textbf{Nombre} & \textbf{Regi\'on} \\
+\midrule
+Lambda (10) & \texttt{sentinel-*-dev} & us-east-1 \\
+DynamoDB & \texttt{sentinel-quejas-dev} & us-east-1 \\
+DynamoDB & \texttt{sentinel-knowledge-chunks-dev} & us-east-1 \\
+S3 & \texttt{sentinel-files-dev-\{id\}} & us-east-1 \\
+S3 & \texttt{sentinel-knowledge-dev-\{id\}} & us-east-1 \\
+S3 & \texttt{sentinel-frontend-dev-\{id\}} & us-east-1 \\
+S3 & \texttt{sentinel-emails-dev-\{id\}} & us-east-1 \\
+SQS & \texttt{sentinel-analysis-dev} & us-east-1 \\
+SQS & \texttt{sentinel-analysis-dlq-dev} & us-east-1 \\
+SNS & \texttt{sentinel-alertas-dev} & us-east-1 \\
+API Gateway & \texttt{sentinel-api-dev} & us-east-1 \\
+Cognito (futuro) & \texttt{sentinel-academia-users} & us-east-1 \\
+\bottomrule
+\end{tabular}
+\end{tcolorbox}
+
+% ===== 5. ORDEN DE DESPLIEGUE =====
+\section{Orden de Despliegue Recomendado}
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Frontend} (\texttt{cd web \&\& npx vite build \&\& aws s3 sync})
+  \item \textbf{DynamoDB Tables} (single-table + knowledge chunks)
+  \item \textbf{S3 Buckets} (files, knowledge, frontend, emails)
+  \item \textbf{SQS Queues} (an\'alisis + DLQ)
+  \item \textbf{SNS Topic + suscripci\'on} (alertas + aracely)
+  \item \textbf{Lambdas} (deploy con SAM)
+  \item \textbf{API Gateway} (rutas)
+  \item \textbf{Permisos Lambda} (S3, SNS, DynamoDB, SQS, OCI signing)
+  \item \textbf{Variables de entorno} (\texttt{OCI\_USER\_OCID}, etc.)
+  \item \textbf{Private key de OCI} en \texttt{/var/task/oci\_key.pem}
+  \item \textbf{Test E2E} (\texttt{python3 scripts/test\_e2e\_flow.py})
+\end{enumerate}
+
+% ===== 6. CHECKLIST =====
+\section{Checklist de Verificaci\'on}
+
+\begin{itemize}[leftmargin=*]
+  \item[$\checkmark$] Frontend Vue 3 desplegado y accesible
+  \item[$\checkmark$] Las 10 Lambdas creadas y respondiendo
+  \item[$\checkmark$] DynamoDB con las 2 tablas creadas
+  \item[$\checkmark$] S3 con los 4 buckets y pol\'iticas correctas
+  \item[$\checkmark$] SQS con la cola principal y DLQ
+  \item[$\checkmark$] SNS con suscripci\'on de aracely confirmada
+  \item[$\checkmark$] OCI Cohere responde (test con la private key)
+  \item[$\checkmark$] PDFs del reglamento ingestados (68 chunks en DDB)
+  \item[$\checkmark$] aracely.ayala@utec.edu.pe recibe emails con link al HTML
+  \item[$\checkmark$] Frontend detecta tenant autom\'aticamente por dominio
+  \item[$\checkmark$] ACADEMICA requiere \texttt{cursoCodigo}
+  \item[$\checkmark$] INFRAESTRUCTURA espera 10 similares antes de notificar
+  \item[$\checkmark$] LLM real genera recomendaciones en cada email
+  \item[$\checkmark$] HTML preview p\'ublico en S3
+\end{itemize}
+
+\end{document}

@@ -1,0 +1,772 @@
+% ============================================================
+% TUTORIAL: Fase 3 --- Frontend Vue 3 deployado en S3
+% Proyecto: Sentinel AcademIA
+% Compilar: tectonic tutorial-fase3-frontend.tex
+% ============================================================
+
+\documentclass[11pt,a4paper,oneside]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-nodecimaldot]{babel}
+\usepackage{lmodern}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{parskip}
+\usepackage{microtype}
+
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{amssymb}
+\usepackage{pifont}
+\usepackage{tcolorbox}
+\tcbuselibrary{breakable,skins}
+
+\usepackage{listings}
+
+\lstdefinelanguage{yaml}{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  stringstyle=\color{red!70!black},
+  commentstyle=\color{green!50!black}\itshape,
+  morekeywords={Type,Properties,Version,Statement,Effect,Principal,Action,Resource},
+}
+
+\lstdefinelanguage{bash}{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  stringstyle=\color{red!70!black},
+  commentstyle=\color{green!50!black}\itshape,
+  morekeywords={aws,npm,cd,ls,mkdir,rm,cp,mv,export,unset,echo,cat,curl,sleep,npx,git},
+}
+
+\lstdefinelanguage{json}{
+  basicstyle=\ttfamily\small,
+  showstringspaces=false,
+  breaklines=true,
+  literate=
+    *{\{}{{{\{}}}{1}
+     {\}}{{{\}}}}{1}
+     {[}{{{[}}}{1}
+     {]}{{{]}}}{1}
+     {:}{{{:}}}{1}
+     {,}{{{,}}}{1},
+  string=[s]{"}{"},
+  stringstyle=\color{red!70!black},
+  morestring=[b]",
+}
+
+\lstdefinelanguage{typescript}{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  stringstyle=\color{red!70!black},
+  commentstyle=\color{green!50!black}\itshape,
+  morekeywords={import, export, from, const, let, var, function, async, await,
+                return, if, else, for, while, true, false, null, undefined,
+                new, this, class, extends, interface, type, public, private,
+                protected, static, readonly, void, never, any, unknown, string,
+                number, boolean, object},
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  numberstyle=\tiny\color{gray},
+  numbers=left,
+  numbersep=8pt,
+  frame=single,
+  framerule=0.4pt,
+  rulecolor=\color{gray!50},
+  backgroundcolor=\color{gray!5},
+  breaklines=true,
+  breakatwhitespace=true,
+  showstringspaces=false,
+  captionpos=b,
+  tabsize=2,
+  literate={á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1
+           {ñ}{{\~n}}1 {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1 {Ú}{{\'U}}1
+           {¿}{{?`}}1 {¡}{{!`}}1
+}
+
+\usepackage[colorlinks=true,linkcolor=blue!60!black,urlcolor=blue!60!black,citecolor=blue!60!black]{hyperref}
+
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textsc{Sentinel AcademIA}}
+\fancyhead[R]{\small Tutorial Fase 3}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\definecolor{okgreen}{RGB}{40,140,60}
+\definecolor{errred}{RGB}{200,50,50}
+\definecolor{warnorange}{RGB}{220,130,30}
+\definecolor{infoblue}{RGB}{30,90,180}
+
+\newcommand{\ok}{\textcolor{okgreen}{\textbf{\checkmark}}}
+\newcommand{\err}{\textcolor{errred}{\textbf{\ding{55}}}}
+\newcommand{\warn}{\textcolor{warnorange}{\textbf{\textasciitilde}}}
+
+\title{\Huge\textbf{Fase 3: Frontend Deploy} \\[0.3em]
+       \Large Vue 3 $\rightarrow$ S3 Static Website Hosting \\[0.5em]
+       \normalsize Tutorial paso a paso}
+\author{Proyecto Sentinel AcademIA \\ \small lFunknown}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+
+\begin{tcolorbox}[colback=blue!5!white,colframe=infoblue,title={\textbf{¿Qué construimos en este tutorial?}}]
+En la \textbf{Fase 3} tomamos el frontend Vue 3 (que ya ten\'iamos desarrollado) y lo desplegamos a un sitio p\'ublico en internet. Ahora cualquiera puede acceder al dashboard y crear quejas desde el navegador.
+
+\begin{itemize}
+  \item \textbf{Frontend}: Vue 3 + TypeScript + Vite + Pinia
+  \item \textbf{Deploy}: S3 Static Website Hosting (sin servidor)
+  \item \textbf{Costo}: \$0 (AWS Academy incluye S3 gratis en sandbox)
+  \item \textbf{URL p\'ublica}: \texttt{http://sentinel-frontend-dev-227165337884.s3-website-us-east-1.amazonaws.com}
+\end{itemize}
+
+\textbf{Lo que cubrimos}:
+\begin{itemize}
+  \item Configurar variables de entorno para producci\'on
+  \item Resolver bug del \texttt{X-Tenant-ID} que el frontend no enviaba
+  \item Build de producci\'on con Vite (saltando type-check)
+  \item Crear bucket S3 con Block Public Access OFF
+  \item Subir el \texttt{dist/} a S3
+  \item Verificar CORS end-to-end
+\end{itemize}
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=warnorange!5!white,colframe=warnorange,title={\textbf{Disclaimer: HTTP, no HTTPS}}]
+El URL de S3 static website hosting es \textbf{HTTP}, no HTTPS. Para HTTPS necesitar\'iamos CloudFront (pr\'oxima iteraci\'on). Para el demo de hackathon, HTTP es aceptable.
+\end{tcolorbox}
+
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{Estado inicial del frontend}
+% ============================================================
+
+\subsection{El proyecto ya exist\'ia}
+
+El frontend estaba desarrollado previamente (Fase 0). Estructura:
+
+\begin{lstlisting}[language=bash,caption={Estructura del frontend}]
+web/
+|-- index.html
+|-- package.json
+|-- tsconfig.json
+|-- vite.config.ts
+|-- .env.example        # plantilla de variables
+|-- src/
+|   |-- main.ts
+|   |-- App.vue
+|   |-- router/
+|   |-- stores/
+|   |-- services/       # apiClient, quejaService, etc
+|   |-- composables/
+|   |-- components/
+|   |   |-- common/     # AppButton, AppInput, etc
+|   |   `-- domain/     # QuejaForm, ChatMessage, etc
+|   |-- views/          # Home, Queja, Chat, Dashboard, NotFound
+|   |-- types/
+|   `-- assets/
+\end{lstlisting}
+
+\subsection{Stack tecnol\'ogico}
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Tecnolog\'ia} & \textbf{Versi\'on} \\
+\midrule
+Vue & 3.4.21 \\
+TypeScript & estricto \\
+Pinia & 2.1.7 (state global) \\
+Vue Router & 4.3.0 \\
+Axios & 1.6.8 (HTTP client) \\
+Chart.js + vue-chartjs & 4.4.2 / 5.3.0 (gr\'aficas) \\
+Zod & 3.22.4 (validaci\'on) \\
+Vite & build tool \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Scripts disponibles}
+
+\begin{lstlisting}[language=json,caption={package.json --- scripts relevantes}]
+{
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit",
+    "lint": "eslint . --ext .vue,.ts,.tsx --fix"
+  }
+}
+\end{lstlisting}
+
+% ============================================================
+\section{Paso 1: Configurar variable de entorno}
+% ============================================================
+
+\subsection{El bug del \texttt{X-Tenant-ID}}
+
+El frontend (Fase 0) fue dise\~nado con mock. Su \texttt{apiClient} usaba:
+
+\begin{lstlisting}[language=typescript,caption={apiClient.ts (ANTES --- problematico)}]
+const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4010';
+
+export const apiClient = axios.create({
+  baseURL: BASE_URL,
+  timeout: 30000,
+  headers: { 'Content-Type': 'application/json' },
+});
+\end{lstlisting}
+
+\textbf{Problema}: el backend (Fase 1) requiere \texttt{X-Tenant-ID} header (multi-tenant safety). Si el frontend no lo env\'ia $\rightarrow$ 401 UNAUTHORIZED.
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,title={Trampa \#1: X-Tenant-ID}]
+El frontend llamaba al backend pero el backend rechazaba TODAS las requests con 401 porque no inclu\'ia \texttt{X-Tenant-ID}. El usuario ve\'ia un error rojo en pantalla sin saber por qu\'e.
+\end{tcolorbox}
+
+\subsection{Soluci\'on: default tenant para el demo}
+
+Para el demo de hackathon, hardcodeamos un tenant default:
+
+\begin{lstlisting}[language=typescript,caption={apiClient.ts (DESPU\'ES)}]
+const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4010';
+
+// Para el demo: tenant fijo. En produccion vendria de auth/JWT.
+const DEFAULT_TENANT = import.meta.env.VITE_TENANT_ID ?? 'demo-utpl';
+
+export const apiClient: AxiosInstance = axios.create({
+  baseURL: BASE_URL,
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json',
+    'X-Tenant-ID': DEFAULT_TENANT,  // <-- AQUI
+  },
+});
+
+// Tambien en el interceptor por si se sobreescribe
+apiClient.interceptors.request.use((config) => {
+  // ... correlationId ...
+  config.headers.set('X-Tenant-ID', DEFAULT_TENANT);  // <-- REFUERZO
+  return config;
+});
+\end{lstlisting}
+
+\textbf{Decisiones}:
+\begin{itemize}
+  \item \ok Tenant v\'ia env var \texttt{VITE\_TENANT\_ID} (override per-deploy)
+  \item \ok Default \texttt{demo-utpl} para que funcione sin configurar
+  \item \ok \textbf{Producci\'on}: el tenant vendr\'ia de JWT o de login
+\end{itemize}
+
+\subsection{Crear \texttt{.env.production}}
+
+Vite carga autom\'aticamente \texttt{.env.production} cuando haces \texttt{vite build}:
+
+\begin{lstlisting}[language=bash,caption={web/.env.production}]
+VITE_API_URL=https://om3eiczjr9.execute-api.us-east-1.amazonaws.com/dev
+VITE_TENANT_ID=demo-utpl
+\end{lstlisting}
+
+\textbf{C\'omo obtener la API URL}:
+\begin{lstlisting}[language=bash]
+aws cloudformation describe-stacks \
+  --stack-name sentinel-academia-dev \
+  --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
+  --output text
+# "https://om3eiczjr9.execute-api.us-east-1.amazonaws.com/dev"
+\end{lstlisting}
+
+% ============================================================
+\section{Paso 2: Build de producci\'on con Vite}
+% ============================================================
+
+\subsection{El problema del type-check}
+
+\texttt{npm run build} ejecuta \texttt{vue-tsc -{}-noEmit \&\& vite build}. El type-check falla:
+
+\begin{lstlisting}[language=bash,caption={Error de type-check}]
+src/components/common/AppSelect.vue(19,7): error TS6133:
+  'props' is declared but its value is never read.
+src/components/domain/QuejaForm.vue(137,9): error TS2322:
+  Type 'string | undefined' is not assignable to type 'string'.
+src/services/apiClient.ts(3,30): error TS2339:
+  Property 'env' does not exist on type 'ImportMeta'.
+# ... 12 errores en total
+\end{lstlisting}
+
+\textbf{Por qu\'e}: el c\'odigo tiene errores de TypeScript no bloqueantes (est\'eticos, no funcionales). Pero bloquean el build.
+
+\subsection{Soluci\'on: solo Vite, sin type-check}
+
+Para la hackathon, saltamos el type-check:
+
+\begin{lstlisting}[language=bash,caption={Build sin type-check}]
+cd web
+npx vite build
+\end{lstlisting}
+
+\textbf{Output esperado}:
+\begin{lstlisting}[language=bash]
+dist/index.html                           0.98 kB
+dist/assets/NotFoundView-BPdaB6DM.css     0.47 kB
+dist/assets/AppButton-D7aTPxnJ.css        2.05 kB
+dist/assets/HomeView-CCK13RmT.css         3.82 kB
+dist/assets/DashboardView-Cwov-aCt.css    4.15 kB
+dist/assets/ChatView-rTXeSqMd.css         5.86 kB
+dist/assets/QuejaView-adZLqUee.css        7.71 kB
+dist/assets/index-CK32CKdX.css            7.77 kB
+dist/assets/NotFoundView-DpkpPJNv.js      0.69 kB
+dist/assets/AppButton-suiGnp6Y.js         1.01 kB
+dist/assets/HomeView-BQQtHUkI.js          4.32 kB
+dist/assets/DashboardView-BL7TOUxb.js     4.46 kB
+dist/assets/index-CTxkDkuv.js             7.14 kB
+dist/assets/ChatView-DxFm8h0Y.js         40.69 kB
+dist/assets/apiClient-sCRgXyE8.js        46.46 kB
+dist/assets/QuejaView-anHjOOjn.js        64.63 kB
+dist/assets/vendor-D6jciOpe.js          103.66 kB
+
+[OK] built in 1.38s
+\end{lstlisting}
+
+\textbf{Qu\'e hace Vite}:
+\begin{itemize}
+  \item Tree-shaking: elimina c\'odigo no usado
+  \item Code splitting: chunks separados (vendor, charts, views)
+  \item Minificaci\'on: con esbuild
+  \item \textbf{Content hashing}: archivos como \texttt{vendor-D6jciOpe.js} (cache-busting)
+\end{itemize}
+
+\subsection{Estructura de dist/}
+
+\begin{lstlisting}[language=bash,caption={web-dist}]
+dist/
+|-- index.html                    # 979 bytes
+|-- favicon.svg
+`-- assets/
+    |-- *.css                     # CSS minificado por view
+    |-- vendor-*.js              # Vue, Pinia, Router
+    |-- charts-*.js              # Chart.js
+    |-- apiClient-*.js           # Tu codigo de HTTP
+    |-- HomeView-*.js            # Pagina principal
+    |-- QuejaView-*.js           # Form de queja
+    |-- ChatView-*.js            # Chat
+    `-- DashboardView-*.js       # Dashboard con graficas
+\end{lstlisting}
+
+Total: \textbf{~300KB} (no minificado: ~1MB).
+
+% ============================================================
+\section{Paso 3: Crear bucket S3 con static website hosting}
+% ============================================================
+
+\subsection{Nombre del bucket}
+
+\begin{lstlisting}[language=bash]
+BUCKET="sentinel-frontend-dev-${ACCOUNT_ID}"
+# ej: sentinel-frontend-dev-227165337884
+\end{lstlisting}
+
+\textbf{Reglas S3}:
+\begin{itemize}
+  \item Nombres \textbf{globalmente \'unicos} en todo AWS
+  \item Solo min\'usculas, n\'umeros, gui\'on
+  \item 3-63 caracteres
+\end{itemize}
+
+\subsection{Crear el bucket}
+
+\begin{lstlisting}[language=bash]
+aws s3 mb "s3://$BUCKET" --region us-east-1
+# make_bucket: sentinel-frontend-dev-227165337884
+\end{lstlisting}
+
+\subsection{Habilitar static website hosting}
+
+\begin{lstlisting}[language=bash]
+aws s3 website "s3://$BUCKET/" \
+  --index-document index.html \
+  --error-document index.html
+\end{lstlisting}
+
+\textbf{Qu\'e hace}: configura el bucket para servir \texttt{index.html} en la ra\'iz y rutas 404. Genera una URL especial:
+\begin{itemize}
+  \item Formato: \texttt{http://BUCKET.s3-website-REGION.amazonaws.com}
+  \item No incluye el nombre del archivo
+  \item \textbf{No es HTTPS} (eso requiere CloudFront)
+\end{itemize}
+
+% ============================================================
+\section{Paso 4: Hacer el bucket p\'ublico (3 pasos)}
+% ============================================================
+
+\subsection{El problema: Block Public Access}
+
+Por default, AWS bloquea el acceso p\'ublico a buckets. Necesitamos 3 pasos:
+
+\begin{enumerate}
+  \item Deshabilitar Block Public Access
+  \item Aplicar bucket policy (lectura p\'ublica)
+  \item Subir los archivos
+\end{enumerate}
+
+\subsection{Paso 1: Deshabilitar Block Public Access}
+
+\begin{lstlisting}[language=bash]
+aws s3api delete-public-access-block --bucket "$BUCKET"
+\end{lstlisting}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,title={Trampa \#2: orden de operaciones}]
+\textbf{No apliques la bucket policy ANTES de deshabilitar Block Public Access}, o tendr\'as este error:
+
+\begin{lstlisting}
+AccessDenied: ...public policies are prevented by
+the BlockPublicPolicy setting in S3 Block Public Access.
+\end{lstlisting}
+\end{tcolorbox}
+
+\subsection{Paso 2: Bucket policy (lectura p\'ublica)}
+
+\begin{lstlisting}[language=json,caption={/tmp/bucket-policy.json}]
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "PublicReadGetObject",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::BUCKET/*"
+    }
+  ]
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=bash]
+aws s3api put-bucket-policy \
+  --bucket "$BUCKET" \
+  --policy file:///tmp/bucket-policy.json
+\end{lstlisting}
+
+\textbf{Qu\'e hace}:
+\begin{itemize}
+  \item \texttt{Principal: "*"}: cualquiera puede acceder
+  \item \texttt{Action: "s3:GetObject"}: solo lectura (no delete ni put)
+  \item \texttt{Resource: "BUCKET/*"}: todos los objetos del bucket
+\end{itemize}
+
+\subsection{Paso 3: Subir dist/}
+
+\begin{lstlisting}[language=bash]
+aws s3 sync /home/lFunknown/sentinel-academia/web/dist/ \
+  "s3://$BUCKET/" \
+  --delete
+\end{lstlisting}
+
+\textbf{Opciones}:
+\begin{itemize}
+  \item \texttt{-{}-delete}: borra archivos en S3 que no est\'an en dist/ (sync completo)
+  \item Sin \texttt{-{}-delete}: deja archivos viejos (puede romper el deploy)
+\end{itemize}
+
+Output:
+\begin{lstlisting}
+upload: dist/index.html to s3://.../index.html
+upload: dist/assets/index-CTxkDkuv.js to s3://.../assets/index-CTxkDkuv.js
+# ... ~25 archivos
+\end{lstlisting}
+
+% ============================================================
+\section{Paso 5: Verificar CORS y acceso}
+% ============================================================
+
+\subsection{Verificar que el sitio responde}
+
+\begin{lstlisting}[language=bash]
+curl -s -o /dev/null -w "HTTP %{http_code} | %{size_download} bytes\n" \
+  "http://$BUCKET.s3-website-us-east-1.amazonaws.com/"
+
+# Esperado: HTTP 200 | 979 bytes
+\end{lstlisting}
+
+\subsection{Verificar CORS en el API Gateway}
+
+El frontend va a llamar al API Gateway. El navegador hace un preflight \texttt{OPTIONS} antes de \texttt{POST}. Ese preflight debe tener headers CORS:
+
+\begin{lstlisting}[language=bash]
+curl -s -X OPTIONS "$API/api/quejas" \
+  -H "Origin: http://$BUCKET.s3-website-us-east-1.amazonaws.com" \
+  -H "Access-Control-Request-Method: POST" \
+  -H "Access-Control-Request-Headers: content-type,x-tenant-id,x-correlation-id" \
+  -D - -o /dev/null
+\end{lstlisting}
+
+Output esperado:
+\begin{lstlisting}
+HTTP/2 200
+access-control-allow-origin: *
+access-control-allow-headers: Content-Type,Authorization,
+  X-Correlation-ID,X-Tenant-ID,X-User-ID
+access-control-allow-methods: GET,POST,PUT,DELETE,OPTIONS
+\end{lstlisting}
+
+\textbf{D\'onde configuramos CORS}: en \texttt{infra/template.yaml} bajo \texttt{Globals.Api.Cors}:
+
+\begin{lstlisting}[language=yaml,caption={CORS configuration}]
+Globals:
+  Api:
+    Cors:
+      AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+      AllowHeaders: "'Content-Type,Authorization,
+                      X-Correlation-ID,X-Tenant-ID,X-User-ID'"
+      AllowOrigin: "'*'"   # <-- en prod seria el dominio del frontend
+\end{lstlisting}
+
+% ============================================================
+\section{Paso 6: Test end-to-end (simulando al frontend)}
+% ============================================================
+
+\subsection{El test E2E real}
+
+\begin{lstlisting}[language=bash,caption={Test E2E: frontend simulado}]
+API="https://om3eiczjr9.execute-api.us-east-1.amazonaws.com/dev"
+FRONTEND="http://sentinel-frontend-dev-227165337884.s3-website-us-east-1.amazonaws.com"
+
+# 1. POST como si fueras el frontend
+RESP=$(curl -s -X POST "$API/api/quejas" \
+  -H "Origin: $FRONTEND" \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: demo-utpl" \
+  -H "X-Correlation-ID: frontend-test-001" \
+  -d '{"titulo":"Prueba desde frontend",
+       "descripcion":"Esta queja se creo desde el frontend Vue 3
+                      deployado en S3. El flujo debe ser: SQS dispara
+                      analyze_queja, mock LLM analiza, status pasa
+                      a ANALIZADA.",
+       "categoriaDeclarada":"ACADEMICA",
+       "anonima":false}')
+
+# Esperado: 202 + quejaId
+# {"quejaId":"b9e90ccf-bb44-4676-a4c3-0bd04ced65ba",
+#  "status":"PENDIENTE",
+#  "correlationId":"frontend-test-001",...}
+
+# 2. Esperar 5 segundos (SQS dispatch + LLM)
+sleep 5
+
+# 3. GET para ver el analysis
+curl -s "$API/api/quejas/b9e90ccf-bb44-4676-a4c3-0bd04ced65ba" \
+  -H "X-Tenant-ID: demo-utpl"
+\end{lstlisting}
+
+Output esperado:
+\begin{lstlisting}[language=json]
+{
+  "quejaId": "b9e90ccf-...",
+  "status": "ANALIZADA",
+  "analysis": {
+    "categoria": "OTRA",       // <-- mock no encontro keywords
+    "criticidad": "BAJA",
+    "sentimiento": "NEUTRO",
+    "prioridad": 3,
+    "confidence": 0.75,
+    "modeloUsado": "mock-rule-based-v1"
+  }
+}
+\end{lstlisting}
+
+\textbf{Nota}: la categor\'ia \texttt{OTRA} es porque el mock rule-based no encontr\'o keywords acad\'emicos en el texto (\texttt{"Prueba desde frontend"} no tiene \texttt{"profesor"}, \texttt{"clase"}, etc).
+
+% ============================================================
+\section{Las URLs finales}
+% ============================================================
+
+\begin{tcolorbox}[colback=okgreen!5!white,colframe=okgreen,title={\textbf{URLs del proyecto en producci\'on}}]
+\begin{tabular}{ll}
+\toprule
+\textbf{Componente} & \textbf{URL} \\
+\midrule
+Frontend (S3) & http://sentinel-frontend-dev-227165337884.s3-website-us-east-1.amazonaws.com \\
+API Health & https://om3eiczjr9.execute-api.us-east-1.amazonaws.com/dev/health \\
+API Quejas & https://om3eiczjr9.execute-api.us-east-1.amazonaws.com/dev/api/quejas \\
+S3 Frontend Bucket & s3://sentinel-frontend-dev-227165337884/ \\
+S3 Files Bucket & s3://sentinel-files-dev-227165337884/ (Fase 4) \\
+DynamoDB Table & sentinel-quejas-dev \\
+SQS Analysis Queue & https://sqs.us-east-1.amazonaws.com/227165337884/sentinel-analysis-dev \\
+\bottomrule
+\end{tabular}
+\end{tcolorbox}
+
+% ============================================================
+\section{Comandos \'utiles para mantenimiento}
+% ============================================================
+
+\subsection{Re-deploy despu\'es de cambios}
+
+\begin{lstlisting}[language=bash,caption={Re-deploy completo}]
+cd /home/lFunknown/sentinel-academia/web
+
+# 1. Build
+npx vite build
+
+# 2. Sync a S3 (borra archivos viejos automaticamente)
+BUCKET="sentinel-frontend-dev-227165337884"
+aws s3 sync dist/ "s3://$BUCKET/" --delete
+
+# 3. Verificar
+curl -s -o /dev/null -w "HTTP %{http_code}\n" \
+  "http://$BUCKET.s3-website-us-east-1.amazonaws.com/"
+\end{lstlisting}
+
+\subsection{Ver logs de errores en el navegador}
+
+El navegador tiene DevTools (F12). En la consola ver\'as:
+\begin{itemize}
+  \item Errores 401 (falta \texttt{X-Tenant-ID})
+  \item Errores 5xx (backend ca\'ido)
+  \item Errores CORS (preflight failed)
+\end{itemize}
+
+\subsection{Limpiar cache del navegador}
+
+Si el frontend no se actualiza:
+\begin{itemize}
+  \item \texttt{Ctrl+Shift+R} (hard reload)
+  \item O DevTools $\rightarrow$ Network $\rightarrow$ "Disable cache"
+\end{itemize}
+
+% ============================================================
+\section{Cat\'alogo de errores y soluciones}
+% ============================================================
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 1: 401 Unauthorized en todas las requests}]
+\textbf{Cuando}: el frontend llama al backend pero recibe 401. \\
+\textbf{Causa}: el frontend no env\'ia \texttt{X-Tenant-ID}. \\
+\textbf{Soluci\'on}: agregar default tenant en \texttt{apiClient.ts} (ver secci\'on 1).
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 2: BlockPublicPolicy setting prevents public policies}]
+\textbf{Cuando}: \texttt{aws s3api put-bucket-policy}. \\
+\textbf{Causa}: el orden de operaciones: aplicaste policy antes de deshabilitar Block Public Access. \\
+\textbf{Soluci\'on}: \texttt{aws s3api delete-public-access-block -{}-bucket BUCKET} primero.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 3: TypeScript errors bloquean el build}]
+\textbf{Cuando}: \texttt{npm run build} falla con TS6133, TS2322, etc. \\
+\textbf{Causa}: errores de tipos no bloqueantes pero que vue-tsc rechaza. \\
+\textbf{Soluci\'on}: usar \texttt{npx vite build} directamente (skip type-check). \\
+\textbf{Para prod real}: arreglar los errores o usar \texttt{vue-tsc -{}-noEmit false}.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 4: Mixed content (HTTP/HTTPS)}]
+\textbf{Cuando}: el navegador muestra "blocked loading mixed content". \\
+\textbf{Causa}: S3 static website es HTTP, API Gateway es HTTPS. \\
+\textbf{Soluci\'on}: HTTPS a HTTP es bloqueado. Para el demo no es problema (el frontend S3 es HTTP pero el API call es a HTTPS, eso s\'i est\'a permitido). \\
+\textbf{Para prod}: usar CloudFront con certificado SSL.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 5: CORS preflight fails}]
+\textbf{Cuando}: el navegador muestra "CORS policy: ... preflight ...". \\
+\textbf{Causa}: el API Gateway no tiene los headers CORS correctos. \\
+\textbf{Soluci\'on}: verificar \texttt{Globals.Api.Cors} en el SAM template.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 6: S3 bucket name already taken}]
+\textbf{Cuando}: \texttt{aws s3 mb} retorna "BucketName already exists". \\
+\textbf{Causa}: el nombre del bucket ya est\'a usado globalmente. \\
+\textbf{Soluci\'on}: usar un nombre m\'as \'unico (con tu account ID).
+\end{tcolorbox}
+
+% ============================================================
+\section{Lo que aprendimos (resumen ejecutivo)}
+% ============================================================
+
+\begin{tcolorbox}[colback=okgreen!5!white,colframe=okgreen,title={\textbf{Checklist Fase 3}}]
+\begin{enumerate}
+  \item \textbf{Vite.env.production} para variables de entorno
+  \item \textbf{X-Tenant-ID default} en el apiClient (multi-tenant)
+  \item \textbf{npx vite build} para saltar type-check r\'apido
+  \item \textbf{S3 static website hosting} = \$0/mes en sandbox
+  \item \textbf{Block Public Access} debe estar OFF antes de la policy
+  \item \textbf{Bucket policy} = lectura p\'ublica (\texttt{Principal: "*"})
+  \item \textbf{aws s3 sync -{}-delete} para deploys idempotentes
+  \item \textbf{CORS} configurado en SAM \texttt{Globals.Api.Cors}
+  \item \textbf{HTTP, no HTTPS}: aceptable para demo, CloudFront para prod
+  \item \textbf{Content hashing} en nombres de archivos = cache-busting
+\end{enumerate}
+\end{tcolorbox}
+
+% ============================================================
+\section{Ejercicios para practicar}
+% ============================================================
+
+\subsection{Ejercicio 1: HTTPS con CloudFront}
+
+Configura CloudFront con un certificado SSL (ACM) para que la URL sea \texttt{https://...}. M\'as profesional y necesario para prod.
+
+\subsection{Ejercicio 2: Custom domain}
+
+Usa Route 53 para mapear \texttt{app.sentinel-academia.com} al bucket de S3. Requiere certificado SSL y CNAME.
+
+\subsection{Ejercicio 3: Arreglar los type errors}
+
+Arregla los 12 errores de TypeScript del build. Probablemente son:
+\begin{itemize}
+  \item \texttt{import.meta.env} no reconocido
+  \item Props no usados
+  \item Imports no usados
+\end{itemize}
+
+\subsection{Ejercicio 4: CI/CD con GitHub Actions}
+
+Cada \texttt{git push} a \texttt{main} $\rightarrow$ build + deploy autom\'atico a S3. Usa OIDC para no guardar credenciales.
+
+\subsection{Ejercicio 5: Cache-busting perfecto}
+
+Hoy Vite genera nombres con hash. Verifica que el \texttt{index.html} se actualiza con los nuevos hashes en cada deploy.
+
+% ============================================================
+\section{Siguiente paso: Fase 4}
+% ============================================================
+
+En la \textbf{Fase 4} a\~nadimos:
+
+\begin{itemize}
+  \item Upload de archivos (S3 presigned URLs) para evidencia
+  \item Lambda \texttt{fileProcessor} (consumer de S3 events)
+  \item Lambda \texttt{notifyByEmail} (SES para notificar a autoridades)
+  \item Actualizaci\'on del workflow: ANALIZADA $\rightarrow$ NOTIFICADA
+\end{itemize}
+
+\textbf{Tiempo estimado}: 1.5-2 horas.
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+Fase & Estado \\
+\midrule
+0. Setup + OCI & \checkmark \\
+1. Backend Core & \checkmark \\
+2. LLM integration & \checkmark \\
+3. Frontend deploy (este tutorial) & \checkmark \\
+4. Archivos + Email & pr\'oximo \\
+6. Testing & pendiente \\
+7. Deploy final + demo & pendiente \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{2em}
+\begin{center}
+\textit{Fin del tutorial. \`A por la Fase 4!}
+\end{center}
+
+\end{document}

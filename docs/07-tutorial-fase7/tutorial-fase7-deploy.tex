@@ -1,0 +1,591 @@
+% ============================================================
+% TUTORIAL: Fase 7 — Deploy final + verificacion end-to-end
+% Proyecto: Sentinel AcademIA
+% Compilar: tectonic tutorial-fase7-deploy.tex
+% ============================================================
+
+\documentclass[11pt,a4paper,oneside]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-nodecimaldot]{babel}
+\usepackage{lmodern}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{parskip}
+\usepackage{microtype}
+
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{amssymb}
+\usepackage{pifont}
+\usepackage{tcolorbox}
+\tcbuselibrary{breakable,skins}
+
+\usepackage{listings}
+
+\lstdefinelanguage{yaml}{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  stringstyle=\color{red!70!black},
+  commentstyle=\color{green!50!black}\itshape,
+  morekeywords={Type,Properties,Version,Statement,Effect,Principal,Action,Resource},
+}
+
+\lstdefinelanguage{bash}{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  stringstyle=\color{red!70!black},
+  commentstyle=\color{green!50!black}\itshape,
+  morekeywords={aws,sam,npm,cd,ls,mkdir,rm,cp,mv,export,unset,echo,cat,curl,sleep,npx,git,python3,pip},
+}
+
+\lstdefinelanguage{json}{
+  basicstyle=\ttfamily\small,
+  showstringspaces=false,
+  breaklines=true,
+  literate=
+    *{\{}{{{\{}}}{1}
+     {\}}{{{\}}}}{1}
+     {[}{{{[}}}{1}
+     {]}{{{]}}}{1}
+     {:}{{{:}}}{1}
+     {,}{{{,}}}{1},
+  string=[s]{"}{"},
+  stringstyle=\color{red!70!black},
+  morestring=[b]",
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  numberstyle=\tiny\color{gray},
+  numbers=left,
+  numbersep=8pt,
+  frame=single,
+  framerule=0.4pt,
+  rulecolor=\color{gray!50},
+  backgroundcolor=\color{gray!5},
+  breaklines=true,
+  breakatwhitespace=true,
+  showstringspaces=false,
+  captionpos=b,
+  tabsize=2,
+  literate={á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1
+           {ñ}{{\~n}}1 {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1 {Ú}{{\'U}}1
+           {¿}{{?`}}1 {¡}{{!`}}1
+}
+
+\usepackage[colorlinks=true,linkcolor=blue!60!black,urlcolor=blue!60!black,citecolor=blue!60!black]{hyperref}
+
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textsc{Sentinel AcademIA}}
+\fancyhead[R]{\small Tutorial Fase 7}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\definecolor{okgreen}{RGB}{40,140,60}
+\definecolor{errred}{RGB}{200,50,50}
+\definecolor{warnorange}{RGB}{220,130,30}
+\definecolor{infoblue}{RGB}{30,90,180}
+
+\newcommand{\ok}{\textcolor{okgreen}{\textbf{\checkmark}}}
+\newcommand{\err}{\textcolor{errred}{\textbf{\ding{55}}}}
+\newcommand{\warn}{\textcolor{warnorange}{\textbf{\textasciitilde}}}
+
+\title{\Huge\textbf{Fase 7: Deploy Final} \\[0.3em]
+       \Large Verificaci\'on end-to-end + README \\[0.5em]
+       \normalsize Tutorial paso a paso}
+\author{Proyecto Sentinel AcademIA \\ \small lFunknown}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+
+\begin{tcolorbox}[colback=blue!5!white,colframe=infoblue,title={\textbf{¿Qué hicimos en este tutorial?}}]
+En la \textbf{Fase 7} (la \'ultima) hicimos el deploy final y verificamos que \textbf{todas las features funcionan end-to-end}. Este tutorial documenta:
+
+\begin{itemize}
+  \item \textbf{Re-deploy} con todos los fixes de bugs encontrados en testing
+  \item \textbf{Test E2E completo}: 5 endpoints probados en orden
+  \item \textbf{Listado de todos los recursos} del stack final
+  \item \textbf{README.md} completo para el repositorio
+  \item \textbf{Estado final}: 50/50 tests pasando, todos los servicios activos
+\end{itemize}
+
+\textbf{Hallazgos del deploy}:
+\begin{itemize}
+  \item \ok \textbf{7 Lambdas} desplegadas y funcionando
+  \item \ok \textbf{DynamoDB} con tabla multi-tenant
+  \item \ok \textbf{SQS + DLQ} para procesamiento as\'incrono
+  \item \ok \textbf{S3} con bucket para evidencia + frontend
+  \item \ok \textbf{API Gateway} con CORS configurado
+  \item \ok \textbf{Frontend Vue 3} accesible p\'ublicamente
+  \item \ok \textbf{OCI Object Storage} con knowledge base
+\end{itemize}
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=infoblue!5!white,colframe=infoblue,title={\textbf{Este es el tutorial final de la hackathon}}]
+Las 7 fases est\'an completas. El proyecto est\'a listo para el demo y el env\'io.
+\end{tcolorbox}
+
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{Estado del proyecto (al inicio de Fase 7)}
+% ====================================
+
+\subsection{Lo que ten\'iamos}
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Fase} & \textbf{Estado} \\
+\midrule
+0. OCI setup & [OK] \\
+1. Backend Core & [OK] \\
+2. LLM integration & [OK] \\
+3. Frontend deploy & [OK] \\
+4. File uploads & [OK] \\
+5. RAG con OCI & [OK] \\
+6. Testing (50/50) & [OK] \\
+7. Deploy final & \textbf{en progreso} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Lo que faltaba para ``production ready''}
+
+\begin{itemize}
+  \item \err \textbf{Bugs encontrados en testing} (4) $\rightarrow$ aplicar fix al c\'odigo deployado
+  \item \err \textbf{Verificar E2E} que todo funciona despu\'es de los fixes
+  \item \err \textbf{README} completo para el repositorio
+  \item \err \textbf{Documentar} el estado final del stack
+\end{itemize}
+
+% ============================================================
+\section{Paso 1: Re-deploy con los fixes}
+% ====================================
+
+\subsection{¿Por qu\'e re-deploy?}
+
+En Fase 6 encontramos 4 bugs gracias a los tests:
+\begin{enumerate}
+  \item \texttt{query\_by\_tenant} usaba \texttt{eq} en vez de \texttt{begins\_with}
+  \item \texttt{ScanIndexForward} no soportado en \texttt{scan}
+  \item SyntaxError en \texttt{chat.py} (\texttt{\textbackslash{}\~{}})
+  \item Imports duplicados (clases diferentes)
+\end{enumerate}
+
+Aunque el bug \#4 era solo de tests, los otros 3 afectaban el c\'odigo de producci\'on. Re-deployamos.
+
+\subsection{Comando de re-deploy}
+
+\begin{lstlisting}[language=bash,caption={Re-deploy con todos los fixes}]
+cd /home/lFunknown/sentinel-academia/infra
+
+# 1. Limpiar build anterior (si hay problemas de permisos)
+rm -rf .aws-sam-new
+
+# 2. Build con el c\'odigo actualizado
+sam build --build-dir .aws-sam-new
+# Output esperado:
+#   Built Artifacts  : .aws-sam-new
+#   Built Template   : .aws-sam-new/template.yaml
+
+# 3. Deploy
+sam deploy \
+  --stack-name sentinel-academia-dev \
+  --template-file .aws-sam-new/template.yaml \
+  --s3-bucket sentinel-sam-artifacts-1781951709 \
+  --capabilities CAPABILITY_IAM \
+  --no-disable-rollback \
+  --no-confirm-changeset
+# Output esperado:
+#   Successfully created/updated stack - sentinel-academia-dev
+\end{lstlisting}
+
+% ============================================================
+\section{Paso 2: Test E2E completo (5 pasos)}
+% ====================================
+
+\subsection{El test que prueba TODO}
+
+\begin{lstlisting}[language=bash,caption={Test E2E final completo}]
+API="https://om3eiczjr9.execute-api.us-east-1.amazonaws.com/dev"
+
+# Paso 1: Crear queja
+echo "=== 1. POST /api/quejas ==="
+RESP=$(curl -s -X POST "$API/api/quejas" \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: demo-utpl" \
+  -H "X-Correlation-ID: final-test-001" \
+  -d '{"titulo":"Test final del proyecto",
+       "descripcion":"Esta queja prueba el flujo completo",
+       "categoriaDeclarada":"INFRAESTRUCTURA",
+       "anonima":false}')
+echo "$RESP" | python3 -m json.tool
+QID=$(echo "$RESP" | python3 -c "import sys,json;print(json.load(sys.stdin)['quejaId'])")
+
+# Paso 2: Pedir URL para subir archivo
+echo "=== 2. POST /api/quejas/{id}/upload-url ==="
+URL_RESP=$(curl -s -X POST "$API/api/quejas/$QID/upload-url" \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: demo-utpl" \
+  -d '{"filename":"evidencia.pdf","contentType":"application/pdf","fileSize":2048}')
+UPLOAD_URL=$(echo "$URL_RESP" | python3 -c "import sys,json;print(json.load(sys.stdin)['uploadUrl'])")
+echo "  Upload URL: ${UPLOAD_URL:0:80}..."
+
+# Paso 3: Subir archivo a S3
+echo "=== 3. PUT a S3 (presigned URL) ==="
+echo "test" > /tmp/evidencia.pdf
+curl -s -X PUT "$UPLOAD_URL" \
+  -H "Content-Type: application/pdf" \
+  --data-binary @/tmp/evidencia.pdf \
+  -w "  HTTP %{http_code}\n" -o /dev/null
+
+# Paso 4: Hacer pregunta al chat (RAG)
+echo "=== 4. POST /api/chat ==="
+sleep 3
+curl -s -X POST "$API/api/chat" \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: demo-utpl" \
+  -d '{"question":"Cuales son las categorias de quejas?"}' | python3 -m json.tool | head -20
+
+# Paso 5: Verificar queja completa
+echo "=== 5. GET /api/quejas/{id} (final) ==="
+sleep 3
+curl -s "$API/api/quejas/$QID" -H "X-Tenant-ID: demo-utpl" | python3 -m json.tool | head -20
+\end{lstlisting}
+
+\subsection{Output esperado (cada paso)}
+
+\subsubsection{Paso 1: POST /api/quejas}
+
+\begin{lstlisting}[language=json]
+{
+  "quejaId": "e096f2e6-4a73-41a6-8fca-d9c0a180589f",
+  "status": "PENDIENTE",
+  "correlationId": "final-test-001",
+  "createdAt": "2026-06-20T15:51:22.849474+00:00",
+  "estimatedAnalysisTime": 30
+}
+\end{lstlisting}
+
+\subsubsection{Paso 3: PUT a S3}
+
+\begin{lstlisting}
+HTTP 200
+\end{lstlisting}
+
+\subsubsection{Paso 4: POST /api/chat}
+
+\begin{lstlisting}[language=json]
+{
+  "answer": "Basado en el reglamento, las categorias son...",
+  "sources": [
+    {"id": "reglamento-cap1", "title": "Capitulo 1: ...", "score": 0.5},
+    {"id": "reglamento-cap4", "title": "Capitulo 4: ...", "score": 0.3},
+    {"id": "reglamento-faq-acoso", "title": "FAQ: ...", "score": 0.2}
+  ],
+  "modeloUsado": "cohere.command-latest",
+  "tokensUsados": 146
+}
+\end{lstlisting}
+
+\subsubsection{Paso 5: GET /api/quejas/{id}}
+
+\begin{lstlisting}[language=json]
+{
+  "quejaId": "e096f2e6-...",
+  "status": "ANALIZADA",
+  "adjuntos": [
+    "https://sentinel-files-dev-...s3.us-east-1.amazonaws.com/..."
+  ],
+  "analysis": {
+    "categoria": "INFRAESTRUCTURA",
+    "criticidad": "MEDIA",
+    "prioridad": 5,
+    "tokensConsumidos": 25
+  }
+}
+\end{lstlisting}
+
+\subsection{¿Qu\'e validamos?}
+
+\begin{itemize}
+  \item \ok \textbf{Crear queja}: 202 + UUID + status PENDIENTE
+  \item \ok \textbf{Pedir presigned URL}: retorna URL v\'alida con key multi-tenant
+  \item \ok \textbf{Upload a S3}: 200 (sin auth, gracias a presigned URL)
+  \item \ok \textbf{Chat (RAG)}: respuesta con sources y scores
+  \item \ok \textbf{Status workflow}: PENDIENTE $\rightarrow$ ANALIZADA
+  \item \ok \textbf{Adjuntos}: archivo subido v\'ia S3 aparece en la queja
+  \item \ok \textbf{Analysis}: el mock LLM clasific\'o correctamente
+\end{itemize}
+
+% ============================================================
+\section{Paso 3: Listar todos los recursos del stack}
+% ====================================
+
+\subsection{Comando para listar}
+
+\begin{lstlisting}[language=bash,caption={Listar recursos del stack}]
+aws cloudformation describe-stack-resources \
+  --stack-name sentinel-academia-dev \
+  --query 'StackResources[].{Type:ResourceType, Name:LogicalResourceId, Id:PhysicalResourceId}' \
+  --output table
+\end{lstlisting}
+
+\subsection{Output (resumen)}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Tipo} & \textbf{Nombre} & \textbf{ID/ARN} \\
+\midrule
+AWS::Lambda::Function & HealthCheckFunction & sentinel-health-dev \\
+AWS::Lambda::Function & CreateQuejaFunction & sentinel-create-queja-dev \\
+AWS::Lambda::Function & GetQuejaFunction & sentinel-get-queja-dev \\
+AWS::Lambda::Function & ListQuejasFunction & sentinel-list-quejas-dev \\
+AWS::Lambda::Function & AnalyzeQuejaFunction & sentinel-analyze-queja-dev \\
+AWS::Lambda::Function & UploadURLFunction & sentinel-upload-url-dev \\
+AWS::Lambda::Function & FileProcessorFunction & sentinel-file-processor-dev \\
+AWS::Lambda::Function & ChatFunction & sentinel-chat-dev \\
+\midrule
+AWS::DynamoDB::Table & QuejasTable & sentinel-quejas-dev \\
+AWS::SQS::Queue & AnalysisQueue & sentinel-analysis-dev \\
+AWS::SQS::Queue & AnalysisDeadLetterQueue & sentinel-analysis-dlq-dev \\
+AWS::S3::Bucket & FilesBucket & sentinel-files-dev-227165337884 \\
+AWS::ApiGateway::RestApi & SentinelApi & om3eiczjr9 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Outputs del stack}
+
+\begin{lstlisting}[language=bash,caption={Obtener outputs}]
+aws cloudformation describe-stacks \
+  --stack-name sentinel-academia-dev \
+  --query 'Stacks[0].Outputs' \
+  --output table
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Output esperado}]
+--------------------------------------------------------------------------------------
+|  OutputKey          |  OutputValue
+--------------------------------------------------------------------------------------
+|  ApiUrl             |  https://om3eiczjr9.execute-api.us-east-1.amazonaws.com/dev
+|  QuejasTableName    |  sentinel-quejas-dev
+|  AnalysisQueueUrl   |  https://sqs.us-east-1.amazonaws.com/.../sentinel-analysis-dev
+|  FilesBucketName    |  sentinel-files-dev-227165337884
+|  FrontendUrl        |  http://sentinel-frontend-dev-...s3-website-us-east-1.amazonaws.com
+--------------------------------------------------------------------------------------
+\end{lstlisting}
+
+% ============================================================
+\section{Paso 4: Verificar tests}
+% ====================================
+
+\subsection{Correr pytest}
+
+\begin{lstlisting}[language=bash,caption={Verificar 50/50 tests pasando}]
+cd /home/lFunknown/sentinel-academia
+export PYTHONPATH=src:$PYTHONPATH
+python3 -m pytest src/tests/ -v
+\end{lstlisting}
+
+\subsection{Output esperado}
+
+\begin{lstlisting}[caption={}]
+src/tests/unit/test_shared.py::TestConfig::test_default_values PASSED
+src/tests/unit/test_shared.py::TestConfig::test_dynamodb_table_resolved PASSED
+src/tests/unit/test_shared.py::TestCorrelationId::test_with_correlation_id PASSED
+... (47 more)
+src/tests/integration/test_handlers.py::TestChat::test_chat_requires_tenant PASSED
+
+============================== 50 passed in 2.09s ==============================
+\end{lstlisting}
+
+% ============================================================
+\section{Paso 5: README.md para el repositorio}
+% ====================================
+
+\subsection{El README completo}
+
+El \texttt{README.md} en la ra\'iz del proyecto incluye:
+
+\begin{itemize}
+  \item \textbf{Arquitectura} con diagrama ASCII
+  \item \textbf{Stack tecnol\'ogico} completo (Python, AWS, OCI, Vue)
+  \item \textbf{Estructura del proyecto} (todos los archivos)
+  \item \textbf{Setup local} paso a paso
+  \item \textbf{Deploy en AWS} con comandos
+  \item \textbf{Configuraci\'on de OCI} con Python SDK
+  \item \textbf{Endpoints de la API} con ejemplos curl
+  \item \textbf{Tests} c\'omo correrlos
+  \item \textbf{Troubleshooting} de errores comunes
+  \item \textbf{Stack final} desplegado (todos los recursos)
+\end{itemize}
+
+\subsection{Fragmentos clave del README}
+
+\begin{lstlisting}[caption={README.md — Instalacion}]
+## Setup local
+
+### Requisitos
+- Python 3.12+
+- Node.js 18+
+- AWS CLI 2.x
+- SAM CLI 1.162+
+- mise 2026+
+- Tectonic 0.16+ (para compilar PDFs)
+
+### 1. Clonar
+git clone https://github.com/your-org/sentinel-academia.git
+cd sentinel-academia
+
+### 2. Python 3.12
+mise use --global python@3.12
+
+### 3. Deps Python
+pip install pydantic pydantic-settings email-validator boto3 \
+  aws-lambda-powertools[tracer,logger,metrics] orjson \
+  pytest pytest-cov pytest-mock 'moto[dynamodb,s3,sqs]' \
+  boto3-stubs[dynamodb,s3,sqs]
+
+### 4. Deps Node
+cd web && npm install && cd ..
+
+### 5. Credenciales AWS Academy
+export AWS_ACCESS_KEY_ID="ASIAT..."
+export AWS_SECRET_ACCESS_KEY="..."
+export AWS_SESSION_TOKEN="IQoJb3JpZ2luX2Vj..."
+export AWS_DEFAULT_REGION="us-east-1"
+export AWS_REGION="us-east-1"
+aws sts get-caller-identity
+\end{lstlisting}
+
+\begin{lstlisting}[caption={README.md — Deploy}]
+## Deploy en AWS
+
+### Build
+cd infra
+sam build --build-dir .aws-sam-new
+
+### Deploy
+sam deploy \
+  --stack-name sentinel-academia-dev \
+  --template-file .aws-sam-new/template.yaml \
+  --s3-bucket YOUR-SAM-ARTIFACTS-BUCKET \
+  --capabilities CAPABILITY_IAM \
+  --no-disable-rollback \
+  --no-confirm-changeset
+
+### S3 notification (post-deploy)
+BUCKET=$(aws cloudformation describe-stacks \
+  --stack-name sentinel-academia-dev \
+  --query 'Stacks[0].Outputs[?OutputKey==`FilesBucketName`].OutputValue' \
+  --output text)
+
+LAMBDA_ARN=$(aws lambda get-function \
+  --function-name sentinel-file-processor-dev \
+  --query 'Configuration.FunctionArn' --output text)
+
+aws s3api put-bucket-notification-configuration \
+  --bucket "$BUCKET" \
+  --notification-configuration "{...}"
+\end{lstlisting}
+
+% ============================================================
+\section{Cat\'alogo de errores y soluciones (Fase 7)}
+% ====================================
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 1: Tests pasan pero deploy falla}]
+\textbf{Cuando}: \texttt{pytest} OK pero el sistema en prod no. \\
+\textbf{Causa}: tests usan moto (mock), prod usa AWS real. \\
+\textbf{Soluci\'on}: hacer test E2E con curl al API real.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 2: CORS preflight fails}]
+\textbf{Cuando}: el frontend no puede llamar al API. \\
+\textbf{Causa}: API Gateway no tiene headers CORS. \\
+\textbf{Soluci\'on}: verificar \texttt{Globals.Api.Cors} en el template.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 3: S3 notification no dispara}]
+\textbf{Cuando}: subes archivo pero la queja no se actualiza. \\
+\textbf{Causa}: notification config no aplicada. \\
+\textbf{Soluci\'on}: \texttt{aws s3api get-bucket-notification-configuration}.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 4: Stack en ROLLBACK\_COMPLETE}]
+\textbf{Cuando}: deploy falla y no se puede re-deployar. \\
+\textbf{Soluci\'on}:
+\begin{lstlisting}
+aws cloudformation delete-stack --stack-name sentinel-academia-dev
+aws cloudformation wait stack-delete-complete --stack-name sentinel-academia-dev
+sam deploy ...
+\end{lstlisting}
+\end{tcolorbox}
+
+% ============================================================
+\section{Lo que aprendimos (resumen ejecutivo)}
+% ====================================
+
+\begin{tcolorbox}[colback=okgreen!5!white,colframe=okgreen,title={\textbf{Checklist Fase 7}}]
+\begin{enumerate}
+  \item \textbf{Re-deploy} despu\'es de tests para aplicar fixes
+  \item \textbf{Test E2E} con curl (5 pasos secuenciales)
+  \item \textbf{Verificar} todos los outputs del stack
+  \item \textbf{pytest} sigue verde despu\'es del re-deploy
+  \item \textbf{README.md} completo para el repositorio
+  \item \textbf{Documentar} el estado final (todos los recursos)
+  \item \textbf{Tests pasan} (50/50)
+  \item \textbf{7 fases} completas
+  \item \textbf{Hackathon} lista para el demo
+  \item \textbf{Siguiente}: el usuario graba el video demo
+\end{enumerate}
+\end{tcolorbox}
+
+% ============================================================
+\section{Siguiente paso: tu video demo}
+% ====================================
+
+El usuario grabar\'a el video demo. Aqu\'i hay un gui\'on sugerido:
+
+\begin{enumerate}
+  \item \textbf{Intro (15s)}: ``Soy [nombre], esto es Sentinel AcademIA, una plataforma
+        de quejas universitarias con IA. Hackathon 2026.''
+  \item \textbf{Arquitectura (30s)}: mostrar el diagrama en el README.
+        Explicar AWS + OCI.
+  \item \textbf{Demo en vivo (90s)}:
+    \begin{itemize}
+      \item Abrir el frontend (\texttt{http://sentinel-frontend-dev-...s3-website...})
+      \item Crear una queja: ``Problema con el aula 205''
+      \item Esperar 5 segundos
+      \item Mostrar el an\'alisis: categor\'ia INFRAESTRUCTURA, criticidad MEDIA
+      \item Hacer una pregunta al chat: ``\`Qu\'e hago si sufro acoso?''
+      \item Mostrar la respuesta con sources del reglamento
+    \end{itemize}
+  \item \textbf{Backend (30s)}: mostrar la consola de AWS:
+    \begin{itemize}
+      \item CloudWatch logs de la Lambda
+      \item DynamoDB con la queja creada
+      \item S3 con el archivo de evidencia
+    \end{itemize}
+  \item \textbf{Tests (15s)}: mostrar \texttt{pytest} corriendo 50 tests en 2 segundos.
+  \item \textbf{Cierre (15s)}: ``50 tests, 7 Lambdas, multi-tenant, RAG, y todo deployado
+        en AWS Academy. Gracias.''
+\end{enumerate}
+
+\vspace{2em}
+\begin{center}
+\textit{Fin del tutorial. \`Exito en tu demo!}
+\end{center}
+
+\end{document}

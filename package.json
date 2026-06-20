@@ -1,0 +1,37 @@
+{
+  "name": "sentinel-academia",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Plataforma universitaria de quejas con IA generativa, serverless y multi-nube (AWS + Oracle OCI)",
+  "license": "MIT",
+  "author": "Equipo Sentinel AcademIA",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=9.0.0"
+  },
+  "scripts": {
+    "mock": "npx @stoplight/prism-cli mock api-mock/openapi.yaml -p 4010 --dynamic",
+    "web:install": "cd web && npm install",
+    "web:dev": "cd web && npm run dev",
+    "web:build": "cd web && npm run build",
+    "web:typecheck": "cd web && npm run typecheck",
+    "web:lint": "cd web && npm run lint",
+    "web:test": "cd web && npm run test",
+    "install:all": "npm install && npm run web:install",
+    "dev:all": "concurrently -n mock,web -c blue,green \"npm run mock\" \"npm run web:dev\"",
+    "typecheck": "npm run web:typecheck",
+    "lint": "npm run web:lint",
+    "test": "npm run web:test",
+    "docs:context": "tectonic docs/01-contexto/contexto.tex --outdir docs/01-contexto",
+    "docs:resilience": "tectonic docs/03-resiliencia-llm/resiliencia.tex --outdir docs/03-resiliencia-llm",
+    "docs:all": "npm run docs:context && npm run docs:resilience",
+    "openapi:lint": "npx @redocly/cli lint api-mock/openapi.yaml",
+    "openapi:types": "npx openapi-typescript api-mock/openapi.yaml -o web/src/types/api-generated.ts",
+    "regenerate-diagrams": "bash scripts/regenerate-diagrams.sh",
+    "clean": "rm -rf web/dist web/node_modules web/.vite docs/**/*.aux docs/**/*.log",
+    "postinstall": "echo \"\n Sentinel AcademIA - Listo! Ejecuta: npm run dev:all\n\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

@@ -1,0 +1,1005 @@
+% ============================================================
+% TUTORIAL: Fase 2 --- LLM Integration con SQS + Async Pattern
+% Proyecto: Sentinel AcademIA
+% Compilar: tectonic tutorial-fase2-llm.tex
+% ============================================================
+
+\documentclass[11pt,a4paper,oneside]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-nodecimaldot]{babel}
+\usepackage{lmodern}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{parskip}
+\usepackage{microtype}
+
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{amssymb}
+\usepackage{pifont}
+\usepackage{tcolorbox}
+\tcbuselibrary{breakable,skins}
+
+\usepackage{listings}
+
+\lstdefinelanguage{yaml}{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  stringstyle=\color{red!70!black},
+  commentstyle=\color{green!50!black}\itshape,
+  morekeywords={AWSTemplateFormatVersion,Transform,Description,Parameters,Globals,Resources,Outputs,Type,Properties,Environment,Variables,Events},
+}
+
+\lstdefinelanguage{bash}{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  stringstyle=\color{red!70!black},
+  commentstyle=\color{green!50!black}\itshape,
+  morekeywords={aws,sam,cd,ls,mkdir,rm,cp,mv,export,unset,echo,cat,grep,curl,sleep,jq},
+}
+
+\lstdefinelanguage{json}{
+  basicstyle=\ttfamily\small,
+  showstringspaces=false,
+  breaklines=true,
+  literate=
+    *{\{}{{{\{}}}{1}
+     {\}}{{{\}}}}{1}
+     {[}{{{[}}}{1}
+     {]}{{{]}}}{1}
+     {:}{{{:}}}{1}
+     {,}{{{,}}}{1},
+  string=[s]{"}{"},
+  stringstyle=\color{red!70!black},
+  morestring=[b]",
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  numberstyle=\tiny\color{gray},
+  numbers=left,
+  numbersep=8pt,
+  frame=single,
+  framerule=0.4pt,
+  rulecolor=\color{gray!50},
+  backgroundcolor=\color{gray!5},
+  breaklines=true,
+  breakatwhitespace=true,
+  showstringspaces=false,
+  captionpos=b,
+  tabsize=2,
+  literate={á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1
+           {ñ}{{\~n}}1 {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1 {Ú}{{\'U}}1
+           {¿}{{?`}}1 {¡}{{!`}}1
+}
+
+\usepackage[colorlinks=true,linkcolor=blue!60!black,urlcolor=blue!60!black,citecolor=blue!60!black]{hyperref}
+
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textsc{Sentinel AcademIA}}
+\fancyhead[R]{\small Tutorial Fase 2}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\definecolor{okgreen}{RGB}{40,140,60}
+\definecolor{errred}{RGB}{200,50,50}
+\definecolor{warnorange}{RGB}{220,130,30}
+\definecolor{infoblue}{RGB}{30,90,180}
+
+\newcommand{\ok}{\textcolor{okgreen}{\textbf{\checkmark}}}
+\newcommand{\err}{\textcolor{errred}{\textbf{\ding{55}}}}
+\newcommand{\warn}{\textcolor{warnorange}{\textbf{\textasciitilde}}}
+
+\title{\Huge\textbf{Fase 2: LLM Integration} \\[0.3em]
+       \Large SQS + Async Pattern + Mock vs Real LLM \\[0.5em]
+       \normalsize Tutorial paso a paso}
+\author{Proyecto Sentinel AcademIA \\ \small lFunknown}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+
+\begin{tcolorbox}[colback=blue!5!white,colframe=infoblue,title={\textbf{¿Qué construimos en este tutorial?}}]
+En la \textbf{Fase 1} ten\'iamos un CRUD b\'asico (POST/GET/LIST de quejas). En esta fase agregamos \textbf{an\'alisis con IA} de forma as\'incrona:
+
+\begin{itemize}
+  \item \texttt{POST /api/quejas} persiste la queja y \textbf{encola} un mensaje
+  \item Una Lambda \textbf{consumer de SQS} procesa la cola en background
+  \item Esa Lambda llama al LLM (Cohere) y actualiza el status a \texttt{ANALIZADA}
+  \item \texttt{GET /api/quejas/\{id\}} devuelve la queja con su an\'alisis
+\end{itemize}
+
+\textbf{Decisiones clave}:
+\begin{itemize}
+  \item \textbf{Por qu\'e SQS}: desacopla el POST r\'apido (202) del an\'alisis lento (LLM)
+  \item \textbf{Por qu\'e Mock LLM en Lambda}: el package \texttt{oci} pesa 229MB y excede el l\'imite de 250MB de Lambda
+  \item \textbf{Por qu\'e Real LLM local}: para demos completas con Cohere real
+\end{itemize}
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=warnorange!5!white,colframe=warnorange,title={\textbf{Trampa de la fase: el l\'imite de 250MB de Lambda}}]
+Cuando agregamos \texttt{pip install oci} a \texttt{requirements.txt}, el zip subi\'o a \textbf{292MB} y Lambda rechaz\'o el deploy con: \\
+\texttt{Unzipped size must be smaller than 262144000 bytes}. \\
+\textbf{Soluci\'on}: \texttt{MockLLMClient} (rule-based, sin deps externas) en Lambda, \texttt{RealLLMClient} solo local.
+\end{tcolorbox}
+
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{Arquitectura del flujo as\'incrono}
+% ============================================================
+
+\subsection{Diagrama del flujo}
+
+\begin{center}
+\begin{tabular}{|c|c|c|c|c|c|}
+\hline
+\textbf{Cliente} & $\rightarrow$ & \textbf{API Gateway} & $\rightarrow$ & \textbf{create\_queja} & $\rightarrow$ \\
+\hline
+POST /api/quejas & & & & Lambda & \\
+\hline
+\end{tabular}
+\end{center}
+
+\begin{center}
+\begin{tabular}{|c|c|c|c|c|}
+\hline
+\textbf{DynamoDB} & $\leftarrow$ & \textbf{create\_queja} & $\rightarrow$ & \textbf{SQS} \\
+\hline
+Tabla Quejas & & persiste queja & & encola mensaje \\
+\hline
+\end{tabular}
+\end{center}
+
+\begin{center}
+\begin{tabular}{|c|c|c|c|c|c|}
+\hline
+\textbf{SQS} & $\rightarrow$ & \textbf{analyze\_queja} & $\rightarrow$ & \textbf{LLM} & $\rightarrow$ \\
+\hline
+dispara & & Lambda consumer & & Mock o Cohere & \\
+\hline
+\end{tabular}
+\end{center}
+
+\begin{center}
+\begin{tabular}{|c|c|c|c|c|}
+\hline
+\textbf{LLM response} & $\rightarrow$ & \textbf{analyze\_queja} & $\rightarrow$ & \textbf{DynamoDB} \\
+\hline
+Analisis JSON & & update status + analysis & & guarda todo \\
+\hline
+\end{tabular}
+\end{center}
+
+\subsection{Status workflow (state machine)}
+
+\begin{center}
+\begin{tabular}{lcl}
+PENDIENTE & $\rightarrow$ & (POST recibido, en DynamoDB) \\
+PENDIENTE & $\rightarrow$ & PROCESANDO (SQS triggered, an\'alisis iniciando) \\
+PROCESANDO & $\rightarrow$ & ANALIZADA (LLM termin\'o, analysis guardado) \\
+PROCESANDO & $\rightarrow$ & ERROR (LLM fall\'o 3 veces, va a DLQ) \\
+ANALIZADA & $\rightarrow$ & NOTIFICADA (autoridad notificada, futuro) \\
+\end{tabular}
+\end{center}
+
+\textbf{Tiempos esperados}:
+\begin{itemize}
+  \item POST $\rightarrow$ 202: $\sim$100ms (solo persiste + encola)
+  \item PENDIENTE $\rightarrow$ ANALIZADA: $\sim$2-3s (SQS dispatch + LLM call)
+\end{itemize}
+
+% ============================================================
+\section{Componente 1: SQS Queue + Dead Letter Queue}
+% ============================================================
+
+\subsection{Qu\'e es SQS}
+
+\textbf{Amazon SQS} = cola de mensajes managed. Los producers env\'ian, los consumers reciben.
+
+\textbf{Para qu\'e sirve en nuestro caso}:
+\begin{itemize}
+  \item \textbf{Desacoplar} el POST r\'apido del an\'alisis lento
+  \item \textbf{Resiliencia}: si la Lambda consumer cae, los mensajes esperan
+  \item \textbf{Retry autom\'atico}: si falla, SQS reintenta hasta 3 veces
+  \item \textbf{DLQ} (Dead Letter Queue): mensajes que fallan 3 veces van ac\'a para an\'alisis manual
+\end{itemize}
+
+\subsection{Configuraci\'on en SAM (template.yaml)}
+
+\begin{lstlisting}[language=yaml,caption={infra/template.yaml --- SQS}]
+# Dead Letter Queue (mensajes que fallan 3 veces)
+AnalysisDeadLetterQueue:
+  Type: AWS::SQS::Queue
+  Properties:
+    QueueName: !Sub "sentinel-analysis-dlq-${Stage}"
+    MessageRetentionPeriod: 1209600  # 14 dias
+
+# Cola principal
+AnalysisQueue:
+  Type: AWS::SQS::Queue
+  Properties:
+    QueueName: !Sub "sentinel-analysis-${Stage}"
+    VisibilityTimeout: 180  # 3 min para procesar
+    RedrivePolicy:
+      deadLetterTargetArn: !GetAtt AnalysisDeadLetterQueue.Arn
+      maxReceiveCount: 3  # 3 reintentos antes de DLQ
+\end{lstlisting}
+
+\textbf{Conceptos}:
+\begin{itemize}
+  \item \texttt{VisibilityTimeout}: tiempo que un mensaje est\'a "invisible" despu\'es de ser le\'ido. Si la Lambda no termina en 180s, el mensaje vuelve a la cola.
+  \item \texttt{maxReceiveCount: 3}: despu\'es de 3 entregas fallidas, va al DLQ.
+  \item \texttt{DLQ Retention: 14 d\'ias}: tiempo que se guarda el mensaje muerto para investigaci\'on.
+\end{itemize}
+
+\subsection{Event mapping (SQS $\rightarrow$ Lambda)}
+
+\begin{lstlisting}[language=yaml,caption={infra/template.yaml --- Lambda consumer}]
+AnalyzeQuejaFunction:
+  Type: AWS::Serverless::Function
+  Properties:
+    Role: !Ref LambdaRoleArn
+    FunctionName: !Sub "sentinel-analyze-queja-${Stage}"
+    CodeUri: ../src
+    Handler: handlers.analyze_queja.lambda_handler
+    MemorySize: 1024  # mas memoria para el LLM
+    Timeout: 120       # mas tiempo para Cohere
+    Environment:
+      Variables:
+        DYNAMODB_TABLE: !Sub "sentinel-quejas-${Stage}"
+        MOCK_LLM: "true"  # usa MockLLMClient (no oci package)
+    Events:
+      SQSEvent:
+        Type: Sqs
+        Properties:
+          Queue: !GetAtt AnalysisQueue.Arn
+          BatchSize: 5  # procesa hasta 5 mensajes juntos
+    Policies:
+      - SQSPollerPolicy:
+          QueueName: !GetAtt AnalysisQueue.QueueName
+\end{lstlisting}
+
+% ============================================================
+\section{Componente 2: Analisis schema (Pydantic)}
+% ============================================================
+
+\subsection{El schema alineado con OpenAPI}
+
+\begin{lstlisting}[language=Python,caption={handlers/\_shared/schemas.py --- Analisis}]
+from enum import StrEnum
+
+class CriticidadEnum(StrEnum):
+    BAJA = "BAJA"
+    MEDIA = "MEDIA"
+    ALTA = "ALTA"
+    CRITICA = "CRITICA"
+
+class SentimientoEnum(StrEnum):
+    POSITIVO = "POSITIVO"
+    NEUTRO = "NEUTRO"
+    NEGATIVO = "NEGATIVO"
+    NEGATIVO_FUERTE = "NEGATIVO_FUERTE"
+
+class Analisis(BaseModel):
+    categoria: CategoriaEnum
+    subcategoria: str | None = None
+    criticidad: CriticidadEnum
+    criticidadJustificacion: str | None = None
+    sentimiento: SentimientoEnum
+    entidades: list[Entidad] = Field(default_factory=list)
+    temasClave: list[str] = Field(default_factory=list)
+    accionSugerida: str
+    prioridad: int = Field(ge=1, le=10)
+    requiereNotificacionInmediata: bool = False
+    modeloUsado: str = "cohere.command-latest"
+    tokensConsumidos: int = 0
+    latenciaMs: int = 0
+    confidence: float = Field(ge=0, le=1, default=0.0)
+    generatedAt: str
+\end{lstlisting}
+
+\subsection{El mensaje SQS}
+
+\begin{lstlisting}[language=Python,caption={handlers/\_shared/schemas.py --- SQS message}]
+class SQSCreateQuejaMessage(BaseModel):
+    """Cuerpo del mensaje que create_queja envia a SQS."""
+    quejaId: str
+    tenantId: str
+    correlationId: str | None = None
+\end{lstlisting}
+
+\textbf{Por qu\'e m\'inimo}: la Lambda consumer har\'a un \texttt{get\_queja()} a DynamoDB para obtener toda la info. El mensaje solo lleva el ID.
+
+% ============================================================
+\section{Componente 3: create\_queja ahora env\'ia a SQS}
+% ============================================================
+
+\subsection{El nuevo flujo}
+
+\begin{lstlisting}[language=Python,caption={handlers/create\_queja.py --- agregar SQS}]
+import boto3
+from handlers._shared.config import get_settings
+
+def _send_to_sqs(queja_id: str, tenant_id: str, correlation_id: str) -> None:
+    """Envia mensaje a SQS para analisis async."""
+    settings = get_settings()
+    queue_url = settings.analysis_queue_url
+    if not queue_url:
+        log.warning("ANALYSIS_QUEUE_URL not configured, skipping SQS send")
+        return
+
+    sqs = boto3.client("sqs")
+    message_body = json.dumps({
+        "quejaId": queja_id,
+        "tenantId": tenant_id,
+        "correlationId": correlation_id,
+    })
+    sqs.send_message(
+        QueueUrl=queue_url,
+        MessageBody=message_body,
+        MessageAttributes={
+            "tenantId": {"StringValue": tenant_id, "DataType": "String"},
+        },
+    )
+\end{lstlisting}
+
+\subsection{Integraci\'on en el handler}
+
+\begin{lstlisting}[language=Python,caption={lambda\_handler --- paso 6}]
+# 5. Persistir en DynamoDB
+dynamo = get_dynamo_client()
+dynamo.put_item(item=item, condition_expression="attribute_not_exists(pk)")
+
+# 6. Enviar a SQS (analisis async)
+try:
+    _send_to_sqs(accepted.quejaId, tenant_id, correlation_id)
+except Exception as e:
+    # No fallar el request: la queja ya esta persistida
+    log.error("Failed to send SQS message (queja is still saved)",
+              extra={"error": str(e)})
+
+# 7. Return 202 Accepted
+return HttpResponse.accepted(accepted.model_dump(mode="json"))
+\end{lstlisting}
+
+\textbf{Patrones importantes}:
+\begin{itemize}
+  \item \ok \textbf{try/except en SQS send}: si falla, la queja sigue guardada (mejor DX)
+  \item \ok \textbf{MessageAttributes}: permiten filtrar en consumer si es necesario
+  \item \ok \textbf{MessageBody es JSON}: estructurado, validable con Pydantic
+\end{itemize}
+
+% ============================================================
+\section{Componente 4: analyze\_queja Lambda (SQS consumer)}
+% ============================================================
+
+\subsection{El handler completo}
+
+\begin{lstlisting}[language=Python,caption={handlers/analyze\_queja.py}]
+from handlers._shared.config import get_settings
+from handlers._shared.correlation_id import (
+    clear_correlation_id, with_correlation_id
+)
+from handlers._shared.dynamo_client import (
+    get_dynamo_client, now_iso, queja_pk, queja_sk
+)
+from handlers._shared.errors import error_handler
+from handlers._shared.logger import get_logger
+from handlers._shared.schemas import QuejaResponse, SQSCreateQuejaMessage
+from services.llm_client import LLMError, get_llm_client
+
+log = get_logger(__name__)
+
+
+def _set_status(queja_id: str, tenant_id: str, status: str) -> None:
+    """Update queja status in DynamoDB."""
+    dynamo = get_dynamo_client()
+    dynamo.update_item(
+        pk=queja_pk(tenant_id, queja_id),
+        sk=queja_sk(queja_id),
+        updates={"status": status, "updatedAt": now_iso()},
+    )
+
+
+def _process_one(record: dict) -> None:
+    """Process a single SQS record."""
+    body = record.get("body", "{}")
+    msg = SQSCreateQuejaMessage.model_validate_json(body)
+    log.append_keys(queja_id=msg.quejaId, tenant_id=msg.tenantId)
+
+    # 1. Fetch queja
+    dynamo = get_dynamo_client()
+    item = dynamo.get_queja(tenant_id=msg.tenantId, queja_id=msg.quejaId)
+    queja = QuejaResponse.from_dynamo(item)
+
+    # 2. Update to PROCESANDO
+    _set_status(msg.quejaId, msg.tenantId, "PROCESANDO")
+
+    # 3. Call LLM
+    llm = get_llm_client()
+    try:
+        analysis = llm.analyze_queja(queja)
+    except LLMError as e:
+        _set_status(msg.quejaId, msg.tenantId, "ERROR")
+        raise  # SQS retry
+
+    # 4. Update to ANALIZADA + store analysis
+    analysis_json = analysis.model_dump(mode="json")
+    dynamo.update_item(
+        pk=queja_pk(msg.tenantId, msg.quejaId),
+        sk=queja_sk(msg.quejaId),
+        updates={
+            "status": "ANALIZADA",
+            "updatedAt": now_iso(),
+            "analysis": analysis_json,
+        },
+    )
+
+
+@error_handler
+def lambda_handler(event, context):
+    """SQS event handler for the analysis queue."""
+    with_correlation_id(event)
+    try:
+        records = event.get("Records", [])
+        failed = []
+        for record in records:
+            try:
+                _process_one(record)
+            except Exception:
+                log.exception("Failed to process record")
+                failed.append({
+                    "itemIdentifier": record.get("messageId"),
+                    "message": "error"
+                })
+
+        # batchItemFailures: SQS reintentar\'a solo los fallidos
+        if failed:
+            return {"batchItemFailures": failed}
+
+        return {"statusCode": 200, "body": "OK"}
+    finally:
+        clear_correlation_id()
+\end{lstlisting}
+
+\subsection{Patrones importantes}
+
+\begin{itemize}
+  \item \ok \textbf{batchItemFailures}: SQS solo reintenta los fallidos (no todos)
+  \item \ok \textbf{Status workflow}: PENDIENTE $\rightarrow$ PROCESANDO $\rightarrow$ ANALIZADA/ERROR
+  \item \ok \textbf{log.append\_keys}: a\~nade quejaId/tenantId a TODOS los logs
+  \item \ok \textbf{finally + clear}: limpia ContextVar al final
+\end{itemize}
+
+% ============================================================
+\section{Componente 5: LLM Client (Mock + Real)}
+% ============================================================
+
+\subsection{El problema del 250MB}
+
+Cuando agregamos \texttt{oci} a requirements.txt:
+
+\begin{lstlisting}[language=bash,caption={Problema}]
+$ du -sh .aws-sam-new/AnalyzeQuejaFunction/
+292M  .aws-sam-new/AnalyzeQuejaFunction/   <-- EXCEDE 250MB
+
+$ sam deploy ...
+Error: Unzipped size must be smaller than 262144000 bytes
+\end{lstlisting}
+
+\textbf{El package \texttt{oci} pesa 229MB} (sus deps: cryptography, pycryptodome, etc.).
+
+\subsection{La soluci\'on: factory con toggle}
+
+\begin{lstlisting}[language=Python,caption={services/llm\_client.py --- factory}]
+import os
+
+def get_llm_client():
+    """Get LLM client based on MOCK_LLM env var."""
+    global _client
+    if _client is not None:
+        return _client
+
+    use_mock = os.environ.get("MOCK_LLM", "true").lower() != "false"
+    if use_mock:
+        log.info("Using MockLLMClient (rule-based)")
+        _client = MockLLMClient()
+    else:
+        log.info("Using RealLLMClient (OCI Cohere)")
+        _client = RealLLMClient()
+    return _client
+\end{lstlisting}
+
+\textbf{En SAM template}:
+\begin{lstlisting}[language=yaml]
+Environment:
+  Variables:
+    MOCK_LLM: "true"   # Lambda = mock
+\end{lstlisting}
+
+\textbf{En tu m\'aquina local}:
+\begin{lstlisting}[language=bash]
+unset MOCK_LLM         # o MOCK_LLM=false
+python mi_script.py   # usa RealLLMClient
+\end{lstlisting}
+
+% ============================================================
+\section{MockLLMClient: rule-based}
+% ============================================================
+
+\subsection{Algoritmo de clasificaci\'on}
+
+\begin{lstlisting}[language=Python,caption={services/llm\_client.py --- MockLLMClient}]
+class MockLLMClient:
+    KEYWORD_MAP = {
+        "ACOSO": (["acoso", "ofensiv", "agresi", "violencia",
+                   "amenaza", "hostig"], "CRITICA", 10),
+        "SALUD": (["suicid", "depres", "ansiedad", "salud mental"],
+                  "CRITICA", 9),
+        "INFRAESTRUCTURA": (["aula", "edificio", "baño", "techo",
+                             "inund", "filtr", "electric", "dañado"],
+                            "MEDIA", 5),
+        "ACADEMICA": (["profesor", "docente", "calificaci",
+                       "examen", "clase"], "MEDIA", 6),
+        "ADMINISTRATIVA": (["matrícula", "inscripci", "trámite",
+                            "sistema", "pago", "becas"], "MEDIA", 5),
+    }
+
+    def analyze_queja(self, queja: QuejaResponse) -> Analisis:
+        text = f"{queja.titulo} {queja.descripcion}".lower()
+
+        # 1. Detectar categoria por keywords
+        best_match = ("OTRA", [], "BAJA", 3)
+        for cat, (keywords, crit, prio) in self.KEYWORD_MAP.items():
+            score = sum(1 for kw in keywords if kw in text)
+            if score > 0 and (best_match[0] == "OTRA" or score > best_match[3]):
+                best_match = (cat, keywords, crit, prio)
+
+        # 2. Detectar sentimiento
+        if any(w in text for w in ["terrible", "horrible", "urgente", "peligro"]):
+            sentimiento = "NEGATIVO_FUERTE"
+        elif any(w in text for w ["mal", "problema", "falla", "error"]):
+            sentimiento = "NEGATIVO"
+        # ... etc
+
+        # 3. Build Analisis
+        return Analisis(
+            categoria=CategoriaEnum(categoria_str),
+            criticidad=CriticidadEnum(criticidad_str),
+            sentimiento=SentimientoEnum(sentimiento),
+            prioridad=prioridad,
+            accionSugerida=accion,
+            # ...
+        )
+\end{lstlisting}
+
+\textbf{Trade-offs}:
+\begin{itemize}
+  \item \ok \textbf{Ventaja}: 0 deps externas, 0 latencia, deterministic
+  \item \err \textbf{Desventaja}: solo detecta keywords obvios, no entiende contexto
+  \item \ok \textbf{Para el demo}: suficiente; el flujo async se demuestra igual
+\end{itemize}
+
+% ============================================================
+\section{RealLLMClient: OCI Cohere (solo local)}
+% ============================================================
+
+\subsection{Cuando usarlo}
+
+\begin{itemize}
+  \item Para hacer demos en tu m\'aquina con el Cohere real
+  \item Para tests que requieren LLM real
+  \item NO en Lambda (excede 250MB)
+\end{itemize}
+
+\subsection{C\'odigo}
+
+\begin{lstlisting}[language=Python,caption={services/llm\_client.py --- RealLLMClient}]
+class RealLLMClient:
+    def __init__(self):
+        import oci
+        from oci.generative_ai_inference import GenerativeAiInferenceClient
+        from oci.generative_ai_inference import models as inference_models
+
+        settings = get_settings()
+        self.config = oci.config.from_file(settings.oci_key_file, "DEFAULT")
+        # override con env vars si existen
+        if settings.oci_user_ocid:
+            self.config["user"] = settings.oci_user_ocid
+        # ...
+
+        self._client = GenerativeAiInferenceClient(
+            self.config,
+            service_endpoint=f"https://inference.generativeai.{self.region}.oci.oraclecloud.com",
+        )
+        self._inference_models = inference_models
+
+    def analyze_queja(self, queja):
+        user_prompt = self._build_user_prompt(queja)
+        chat_request = self._inference_models.CohereChatRequest(
+            message=user_prompt,
+            max_tokens=800,
+            temperature=0.2,
+            is_stream=False,
+        )
+        details = self._inference_models.ChatDetails(
+            compartment_id=self.compartment_id,
+            serving_mode=self._inference_models.OnDemandServingMode(
+                model_id=self.model_ocid,
+            ),
+            chat_request=chat_request,
+        )
+        response = self._client.chat(details)
+        text = response.data.chat_response.text
+        return self._parse_to_analisis(text)
+\end{lstlisting}
+
+\subsection{El prompt a Cohere}
+
+\begin{lstlisting}[language=Python,caption={System prompt}]
+SYSTEM_PROMPT = """Eres un asistente especializado en analizar quejas universitarias.
+Devuelve SOLO JSON v\u00e1lido con esta estructura:
+
+{
+  "categoria": "ACADEMICA" | "INFRAESTRUCTURA" | "ACOSO" |
+               "ADMINISTRATIVA" | "SALUD" | "OTRA",
+  "criticidad": "BAJA" | "MEDIA" | "ALTA" | "CRITICA",
+  "sentimiento": "POSITIVO" | "NEUTRO" | "NEGATIVO" | "NEGATIVO_FUERTE",
+  "prioridad": 1-10,
+  "requiereNotificacionInmediata": true | false,
+  "confidence": 0.0-1.0,
+  // ... etc
+}
+
+NO devuelvas markdown. SOLO el JSON puro."""
+\end{lstlisting}
+
+% ============================================================
+\section{El bug de DynamoDB: floats no soportados}
+% ============================================================
+
+\subsection{El error real}
+
+Cuando hicimos el primer test E2E, los logs mostraron:
+
+\begin{lstlisting}[language=json,caption={CloudWatch logs --- error real}]
+{
+  "errorType": "TypeError",
+  "errorMessage": "Float types are not supported. Use Decimal types instead.",
+  "stackTrace": [
+    "File \"/var/task/boto3/dynamodb/types.py\", line 171, in _is_number",
+    "raise TypeError("
+  ]
+}
+\end{lstlisting}
+
+\subsection{Por qu\'e pas\'o}
+
+El \texttt{Analisis.confidence} es un \texttt{float} (Python). DynamoDB \textbf{no acepta floats nativos}, solo \texttt{Decimal}:
+
+\begin{lstlisting}[language=python]
+# MAL
+analysis.confidence = 0.75  # -> Python float
+dynamo.update_item({"analysis": analysis.dict()})  # -> ERROR
+
+# BIEN
+from decimal import Decimal
+analysis.confidence = Decimal("0.75")  # -> DynamoDB N
+\end{lstlisting}
+
+\subsection{El fix: helper \texttt{\_to\_dynamo}}
+
+\begin{lstlisting}[language=Python,caption={handlers/\_shared/dynamo\_client.py}]
+from decimal import Decimal
+
+def _to_dynamo(value):
+    """Recursively convert floats to Decimal for DynamoDB."""
+    if isinstance(value, float):
+        return Decimal(str(value))  # str() evita precision issues
+    if isinstance(value, dict):
+        return {k: _to_dynamo(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_to_dynamo(item) for item in value]
+    return value
+
+
+def put_item(self, item, condition_expression=None):
+    kwargs = {"Item": _to_dynamo(item)}  # <-- APLICAR
+    # ...
+
+
+def update_item(self, pk, sk, updates):
+    # ...
+    response = self._table.update_item(
+        Key={"pk": pk, "sk": sk},
+        UpdateExpression=update_expr,
+        ExpressionAttributeValues=_to_dynamo(expression_values),  # <-- APLICAR
+        # ...
+    )
+\end{lstlisting}
+
+\textbf{Patrones}:
+\begin{itemize}
+  \item \ok \texttt{Decimal(str(x))} en vez de \texttt{Decimal(x)} para evitar \texttt{0.1 + 0.2 = 0.30000000000000004}
+  \item \ok Recursivo: maneja dicts y lists anidados
+  \item \err No lo olvides: si a\~nades otro client, tambi\'en debe usar \texttt{\_to\_dynamo}
+\end{itemize}
+
+% ============================================================
+\section{Los 2 smoke tests E2E que validan todo}
+% ============================================================
+
+\subsection{Test 1: Queja de ACOSO (palabra clave)}
+
+\begin{lstlisting}[language=bash,caption={Test E2E: ACOSO}]
+API="https://om3eiczjr9.execute-api.us-east-1.amazonaws.com/dev"
+
+# Paso 1: POST
+RESP=$(curl -s -X POST "$API/api/quejas" \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: utpl" \
+  -H "X-User-ID: estudiante-003" \
+  -H "X-Correlation-ID: fase2-final-001" \
+  -d '{"titulo":"Situacion de acoso en el salon",
+       "descripcion":"Varios companeros han reportado comentarios
+                      agresivos y ofensivos reiterados. Situacion urgente.",
+       "categoriaDeclarada":"ACOSO",
+       "anonima":false}')
+
+# Output esperado (202 Accepted)
+# {"quejaId":"e3148f6c-...","status":"PENDIENTE",
+#  "correlationId":"fase2-final-001",
+#  "createdAt":"2026-06-20T14:02:45.077465+00:00",
+#  "estimatedAnalysisTime":30}
+
+# Paso 2: Esperar 5 segundos (SQS dispatch)
+sleep 5
+
+# Paso 3: GET con analysis
+curl -s "$API/api/quejas/$QUEJA_ID" -H "X-Tenant-ID: utpl"
+\end{lstlisting}
+
+\begin{lstlisting}[language=json,caption={Output del GET --- analysis detectada}]
+{
+  "quejaId": "e3148f6c-92ec-4df2-9669-3539aeeb2195",
+  "status": "ANALIZADA",
+  "analysis": {
+    "categoria": "ACOSO",
+    "subcategoria": "acoso",
+    "criticidad": "CRITICA",
+    "criticidadJustificacion":
+      "Detectadas palabras clave de ACOSO. Prioridad 10/10.",
+    "sentimiento": "NEGATIVO_FUERTE",
+    "entidades": [
+      {"tipo": "MENCION", "texto": "Varios"},
+      {"tipo": "MENCION", "texto": "Situacion"}
+    ],
+    "temasClave": ["acoso", "agresivos", "ofensivos"],
+    "accionSugerida":
+      "Notificar a BIENESTAR y SEGURIDAD inmediatamente.
+       Escalar a direccion.",
+    "prioridad": 10,
+    "requiereNotificacionInmediata": true,
+    "modeloUsado": "mock-rule-based-v1",
+    "tokensConsumidos": 13,
+    "latenciaMs": 0,
+    "confidence": 0.75,
+    "generatedAt": "2026-06-20T14:02:48.156952+00:00"
+  }
+}
+\end{lstlisting}
+
+\subsection{Test 2: Queja de INFRAESTRUCTURA}
+
+\begin{lstlisting}[language=bash,caption={Test E2E: INFRAESTRUCTURA}]
+RESP=$(curl -s -X POST "$API/api/quejas" \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: utpl" \
+  -H "X-Correlation-ID: fase2-infra-001" \
+  -d '{"titulo":"Techo del salon con filtraciones",
+       "descripcion":"El aula 205 tiene el techo dañado y se
+                      inunda cuando llueve. Hay charcos constantes.",
+       "categoriaDeclarada":"INFRAESTRUCTURA",
+       "anonima":false}')
+
+sleep 5
+# Output del GET:
+# {
+#   "categoria": "INFRAESTRUCTURA",
+#   "criticidad": "MEDIA",
+#   "prioridad": 5,
+#   "requiereNotificacionInmediata": false,
+#   "temasClave": ["aula"],
+#   "accionSugerida": "Asignar a comite academico. Responder
+#                       en 5 dias habiles.",
+#   "modeloUsado": "mock-rule-based-v1",
+#   "confidence": 0.75
+# }
+\end{lstlisting}
+
+% ============================================================
+\section{Cat\'alogo de errores y soluciones}
+% ============================================================
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 1: Unzipped size > 250MB}]
+\textbf{Cuando}: \texttt{sam deploy} con \texttt{oci} en requirements. \\
+\textbf{Causa}: el package \texttt{oci} pesa 229MB solo. \\
+\textbf{Soluci\'on}: usar MockLLMClient en Lambda; oci solo local.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 2: Float types not supported}]
+\textbf{Cuando}: guardar Analisis con \texttt{confidence: 0.75}. \\
+\textbf{Causa}: DynamoDB no acepta \texttt{float}, solo \texttt{Decimal}. \\
+\textbf{Soluci\'on}: helper \texttt{\_to\_dynamo} que convierte recursivamente.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 3: SQS message sent but consumer no triggered}]
+\textbf{Cuando}: el mensaje va a SQS pero la Lambda no se ejecuta. \\
+\textbf{Causa}: permisos del LabRole (no \texttt{sqs:ReceiveMessage}). \\
+\textbf{Soluci\'on}: agregar \texttt{SQSPollerPolicy} en el template.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 4: batchItemFailures no reportado}]
+\textbf{Cuando}: SQS reintenta TODOS los mensajes, no solo los fallidos. \\
+\textbf{Causa}: la Lambda retorna 200 en vez de \texttt{\{batchItemFailures: [...]\}}. \\
+\textbf{Soluci\'on}: capturar excepciones per-record y reportar failures.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 5: analysis en null despu\'es de esperar}]
+\textbf{Cuando}: GET devuelve \texttt{analysis: null} tras 30s. \\
+\textbf{Causa}: la Lambda fall\'o silenciosamente; revisar CloudWatch logs. \\
+\textbf{Soluci\'on}: \texttt{aws logs tail /aws/lambda/sentinel-analyze-queja-dev}.
+\end{tcolorbox}
+
+% ============================================================
+\section{Verificaci\'on en AWS Console}
+% ============================================================
+
+\subsection{Recursos desplegados (despu\'es de Fase 2)}
+
+\begin{lstlisting}[language=bash,caption={Listar todos los recursos del stack}]
+aws cloudformation describe-stack-resources \
+  --stack-name sentinel-academia-dev \
+  --query 'StackResources[].{Type:ResourceType, Id:PhysicalResourceId, Name:LogicalResourceId}' \
+  --output table
+\end{lstlisting}
+
+\begin{lstlisting}[language=json,caption={Output esperado (resumen)}]
+Type                    | Name                       | Status
+------------------------|----------------------------|--------
+AWS::DynamoDB::Table    | QuejasTable                | CREATE_COMPLETE
+AWS::SQS::Queue         | AnalysisQueue              | CREATE_COMPLETE
+AWS::SQS::Queue         | AnalysisDeadLetterQueue    | CREATE_COMPLETE
+AWS::S3::Bucket         | FilesBucket                | CREATE_COMPLETE
+AWS::Lambda::Function   | HealthCheckFunction        | CREATE_COMPLETE
+AWS::Lambda::Function   | CreateQuejaFunction        | CREATE_COMPLETE
+AWS::Lambda::Function   | GetQuejaFunction          | CREATE_COMPLETE
+AWS::Lambda::Function   | ListQuejasFunction         | CREATE_COMPLETE
+AWS::Lambda::Function   | AnalyzeQuejaFunction       | CREATE_COMPLETE
+AWS::ApiGateway::RestApi| SentinelApi                | CREATE_COMPLETE
+\end{lstlisting}
+
+\subsection{Ver logs del an\'alisis en tiempo real}
+
+\begin{lstlisting}[language=bash,caption={Tail logs de analyze\_queja}]
+aws logs tail /aws/lambda/sentinel-analyze-queja-dev --follow
+\end{lstlisting}
+
+Output esperado:
+
+\begin{lstlisting}[language=json]
+{"level":"INFO","location":"lambda_handler:103",
+ "message":"Processing 1 SQS records",
+ "queja_id":"e3148f6c-92ec-4df2-9669-3539aeeb2195",
+ "tenant_id":"utpl"}
+
+{"level":"INFO","location":"_process_one:63",
+ "message":"Status updated to PROCESANDO"}
+
+{"level":"INFO","location":"get_llm_client:295",
+ "message":"Using MockLLMClient (rule-based)"}
+
+{"level":"INFO","location":"_process_one:84",
+ "message":"Analysis stored",
+ "categoria":"ACOSO","criticidad":"CRITICA","prioridad":10}
+\end{lstlisting}
+
+\subsection{Ver mensajes en DLQ (si hay errores)}
+
+\begin{lstlisting}[language=bash,caption={Inspeccionar DLQ}]
+aws sqs get-queue-attributes \
+  --queue-url https://sqs.us-east-1.amazonaws.com/227165337884/sentinel-analysis-dlq-dev \
+  --attribute-names All
+\end{lstlisting}
+
+% ============================================================
+\section{Lo que aprendimos (resumen ejecutivo)}
+% ============================================================
+
+\begin{tcolorbox}[colback=okgreen!5!white,colframe=okgreen,title={\textbf{Checklist Fase 2}}]
+\begin{enumerate}
+  \item \textbf{SQS para desacoplar}: POST r\'apido, an\'alisis lento
+  \item \textbf{DLQ para resiliencia}: mensajes fallidos van a cola aparte
+  \item \textbf{VisibilityTimeout}: 3 min para procesar; si no, reintenta
+  \item \textbf{batchItemFailures}: SQS solo reintenta los fallidos
+  \item \textbf{Status workflow}: PENDIENTE $\rightarrow$ PROCESANDO $\rightarrow$ ANALIZADA
+  \item \textbf{Mock vs Real LLM}: Toggle con \texttt{MOCK\_LLM} env var
+  \item \textbf{Lambda 250MB limit}: \texttt{oci} package NO cabe; usar mock
+  \item \textbf{DynamoDB Decimal}: floats de Python NO funcionan; helper \texttt{\_to\_dynamo}
+  \item \textbf{log.append\_keys}: a\~nade context (quejaId, tenantId) a todos los logs
+  \item \textbf{System prompt LLM}: instrucciones claras + JSON schema
+\end{enumerate}
+\end{tcolorbox}
+
+% ============================================================
+\section{Ejercicios para practicar}
+% ============================================================
+
+\subsection{Ejercicio 1: A\~nadir m\'as keywords al MockLLM}
+
+Edita \texttt{MockLLMClient.KEYWORD\_MAP} para reconocer 5 categor\'ias m\'as. Test\'ealo con quejas reales.
+
+\subsection{Ejercicio 2: Implementar RealLLMClient en Lambda con Layer}
+
+Crea un Lambda Layer con el package \texttt{oci} slim (solo lo necesario: \texttt{oci.generative\_ai\_inference}). Adj\'untalo a \texttt{AnalyzeQuejaFunction}. Cambia \texttt{MOCK\_LLM=false}.
+
+\subsection{Ejercicio 3: A\~nadir m\'etricas CloudWatch}
+
+Mide cu\'anto tarda el LLM (latency), cu\'antas quejas se procesan por minuto, cu\'antas fallan. Usa \texttt{aws-lambda-powertools.metrics}.
+
+\subsection{Ejercicio 4: Endpoint \texttt{GET /api/quejas/\{id\}/analysis}}
+
+Crea un nuevo handler que devuelva SOLO el analysis (no toda la queja). \'Util para el dashboard.
+
+\subsection{Ejercicio 5: A\~nadir notificaci\'on por email (Fase 4 prep)}
+
+Cuando el status pasa a \texttt{NOTIFICADA}, env\'ia email v\'ia SES al admin. Usa el campo \texttt{requiereNotificacionInmediata} para filtrar.
+
+% ============================================================
+\section{Siguiente paso: Fase 3}
+% ============================================================
+
+En la \textbf{Fase 3} desplegamos el \textbf{frontend Vue 3}:
+
+\begin{itemize}
+  \item Configurar variable de entorno con la API URL
+  \item Build de producci\'on con Vite
+  \item Deploy a \textbf{Vercel} (o S3 + CloudFront)
+  \item Probar el flujo end-to-end: frontend $\rightarrow$ backend $\rightarrow$ SQS $\rightarrow$ LLM
+  \item Capturar screenshots para el demo
+\end{itemize}
+
+\textbf{Tiempo estimado}: 1-2 horas.
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+Fase & Estado \\
+\midrule
+0. Setup + OCI & \checkmark \\
+1. Backend Core & \checkmark \\
+2. LLM integration (este tutorial) & \checkmark \\
+3. Frontend deploy & pr\'oximo \\
+4. Archivos + Email & pendiente \\
+5. RAG & opcional \\
+6. Testing & pendiente \\
+7. Deploy final + demo & pendiente \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{2em}
+\begin{center}
+\textit{Fin del tutorial. ¡A por la Fase 3!}
+\end{center}
+
+\end{document}

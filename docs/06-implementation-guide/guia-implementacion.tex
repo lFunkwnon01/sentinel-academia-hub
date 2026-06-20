@@ -1,0 +1,1543 @@
+\documentclass[11pt,a4paper]{article}
+
+% Paquetes
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{tcolorbox}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{multicol}
+\usepackage{tikz}
+\usetikzlibrary{shapes, arrows.meta, positioning}
+
+% Colores
+\definecolor{primary}{HTML}{2563EB}
+\definecolor{critical}{HTML}{DC2626}
+\definecolor{success}{HTML}{10B981}
+\definecolor{warning}{HTML}{F59E0B}
+\definecolor{codebg}{HTML}{F1F5F9}
+\definecolor{codeframe}{HTML}{CBD5E1}
+\definecolor{bashbg}{HTML}{1E293B}
+\definecolor{awsorange}{HTML}{FF9900}
+\definecolor{ocired}{HTML}{C74634}
+
+% Hyperlinks
+\hypersetup{
+    colorlinks=true,
+    linkcolor=primary,
+    urlcolor=primary,
+    citecolor=primary,
+    pdftitle={Guia de Implementacion - Sentinel AcademIA},
+    pdfauthor={Equipo Sentinel AcademIA}
+}
+
+% Listings - definicion de lenguajes
+\lstdefinelanguage{Python}{
+  keywords={async, await, def, return, if, else, elif, for, while, try, except, finally, raise, with, as, from, import, class, lambda, pass, break, continue, in, is, not, and, or, None, True, False, yield, global, nonlocal},
+  keywordstyle=\color{primary}\bfseries,
+  ndkeywords={str, int, float, bool, list, dict, tuple, set, Optional, Any, Dict, List, Union, Tuple, Set},
+  ndkeywordstyle=\color{warning}\bfseries,
+  sensitive=true,
+  comment=[l]{\#},
+  morecomment=[s]{"""}{"""},
+  commentstyle=\color{gray}\itshape,
+  stringstyle=\color{success},
+  morestring=[b]',
+  morestring=[b]"
+}
+
+\lstdefinelanguage{Bash}{
+  keywords={sudo, apt-get, dnf, yum, brew, npm, npx, pip, sam, aws, oci, cd, ls, mkdir, cat, echo, export, source, curl, wget, git, python, node, terraform, kubectl, docker, vim, nano, less, more, grep, awk, sed},
+  keywordstyle=\color{success}\bfseries,
+  ndkeywords={--version, --help, --region, --profile, --bucket, --stack-name, --guided, --capabilities, --s3-bucket, --no-fail-on-empty-changeset, --no-confirm-changeset, --parameter-overrides},
+  ndkeywordstyle=\color{warning}\bfseries,
+  sensitive=true,
+  comment=[l]{\#},
+  commentstyle=\color{gray}\itshape,
+  stringstyle=\color{primary},
+  morestring=[b]",
+  morestring=[b]'
+}
+
+\lstdefinelanguage{YAML}{
+  keywords={true, false, null, yes, no},
+  keywordstyle=\color{primary}\bfseries,
+  sensitive=true,
+  comment=[l]{\#},
+  commentstyle=\color{gray}\itshape,
+  stringstyle=\color{success},
+  morestring=[b]",
+  morestring=[b]'
+}
+
+\lstdefinelanguage{JSON}{
+  keywords={true, false, null},
+  keywordstyle=\color{primary}\bfseries,
+  commentstyle=\color{gray}\itshape,
+  stringstyle=\color{success},
+  morestring=[b]",
+  showstringspaces=false
+}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    backgroundcolor=\color{codebg},
+    frame=single,
+    framerule=0.5pt,
+    rulecolor=\color{codeframe},
+    breaklines=true,
+    showstringspaces=false,
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    numbersep=8pt,
+}
+
+% Formato titulos
+\titleformat{\section}{\Large\bfseries\color{primary}}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries\color{primary!80!black}}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{primary!70!black}}{\thesubsubsection}{1em}{}
+
+% Header/footer
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\small Sentinel AcademIA \textbar{} Guia de Implementacion}
+\lhead{\small \leftmark}
+\rfoot{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% Title
+\title{
+    \vspace{-1.5cm}
+    {\Huge\bfseries\color{primary} Gu\'ia de Implementaci\'on}\\[0.4cm]
+    {\Large Sentinel AcademIA -- Paso a Paso}\\[0.6cm]
+    {\normalsize Backend Python + Frontend Vue 3 + AWS + Oracle OCI}
+}
+\author{Equipo de Desarrollo}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{fancy}
+
+\begin{tcolorbox}[colback=codebg, colframe=primary, title=\textbf{Sobre esta gu\'ia}]
+Esta es una gu\'ia \textbf{paso a paso} para implementar Sentinel AcademIA. Est\'a escrita asumiendo que \textbf{NO tienes asistencia} de una IA, por lo que cada paso incluye:
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Qu\'e} estamos haciendo y por qu\'e
+    \item \textbf{C\'omo} hacerlo (comandos exactos)
+    \item \textbf{Output esperado} (qu\'e deber\'ias ver)
+    \item \textbf{Problemas comunes} y c\'omo resolverlos
+\end{itemize}
+
+\textbf{Tiempo estimado total}: 14-18 horas de desarrollo concentrado.
+\end{tcolorbox}
+
+\tableofcontents
+\newpage
+
+% ============================================
+\section{Pre-requisitos}
+% ============================================
+
+\subsection{Cuentas necesarias}
+
+\begin{longtable}{|p{4cm}|p{4cm}|p{6cm}|}
+\hline
+\rowcolor{primary!20}
+\textbf{Cuenta} & \textbf{Costo} & \textbf{Para qu\'e} \\
+\hline
+\endhead
+AWS Academy & \$50 USD cr\'editos (gratis) & Lambda, SQS, SNS, DynamoDB, S3, SES, CloudWatch \\
+\hline
+Oracle Cloud Academy & Cr\'editos disponibles & OCI Generative AI (LLM), Document AI, Vault \\
+\hline
+Vercel & Free tier & Deploy del frontend Vue 3 \\
+\hline
+GitHub & Free para public & Repositorio + CI/CD con GitHub Actions \\
+\hline
+OpenAI/Anthropic (opcional) & - & Backup para LLMs en caso de emergencia \\
+\hline
+\end{longtable}
+
+\subsection{Herramientas a instalar localmente}
+
+\begin{lstlisting}[language=Bash, caption={Instalacion de herramientas en Linux (Fedora/RHEL)}]
+# Actualizar sistema
+sudo dnf update -y
+
+# Python 3.12
+sudo dnf install -y python3.12 python3.12-pip python3.12-devel
+
+# Node.js 20
+curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
+sudo dnf install -y nodejs
+
+# AWS CLI v2
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+
+# SAM CLI
+pip3.12 install --user aws-sam-cli
+
+# OCI CLI
+bash -c "$(curl -L https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh)"
+
+# Tectonic (compilador LaTeX)
+curl -fsSL "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.16.9/tectonic-0.16.9-x86_64-unknown-linux-musl.tar.xz" -o /tmp/tectonic.tar.xz
+tar -xJf /tmp/tectonic.tar.xz -C /tmp
+sudo mv /tmp/tectonic /usr/local/bin/
+
+# Git, jq, make
+sudo dnf install -y git jq make
+
+# Verificar
+python3.12 --version
+node --version
+aws --version
+sam --version
+oci --version
+tectonic --version
+git --version
+\end{lstlisting}
+
+\begin{lstlisting}[language=Bash, caption={Instalacion en macOS con Homebrew}]
+brew install python@3.12 node awscli aws-sam-cli oci-cli tectonic git jq
+brew link --overwrite python@3.12
+\end{lstlisting}
+
+\begin{lstlisting}[language=Bash, caption={Instalacion en Windows}]
+# Descargar installers desde:
+# - Python: https://www.python.org/downloads/
+# - Node.js: https://nodejs.org/
+# - AWS CLI: https://awscli.amazonaws.com/AWSCLIV2.msi
+# - SAM CLI: https://github.com/aws/aws-sam-cli/releases
+# - OCI CLI: https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/cliinstall.htm
+\end{lstlisting}
+
+% ============================================
+\section{FASE 0: Setup Inicial}
+% ============================================
+
+\subsection{0.1 Configurar AWS CLI}
+
+\subsubsection{Obtener credenciales de AWS Academy}
+
+\begin{enumerate}[leftmargin=*]
+    \item Ve a tu laboratorio en AWS Academy
+    \item Click en \textbf{``AWS Details''} (esquina superior derecha)
+    \item Click en \textbf{``Show''} junto a AWS CLI credentials
+    \item Copia los 3 valores:
+    \begin{itemize}
+        \item \texttt{AWS\_ACCESS\_KEY\_ID}
+        \item \texttt{AWS\_SECRET\_ACCESS\_KEY}
+        \item \texttt{AWS\_SESSION\_TOKEN} (este caduca en 3-4 horas)
+    \end{itemize}
+\end{enumerate}
+
+\subsubsection{Configurar el archivo de credenciales}
+
+\textbf{Nunca} pongas credenciales en c\'odigo o archivos del proyecto. Usa el archivo de credenciales de AWS CLI:
+
+\begin{lstlisting}[language=Bash, caption={Configurar AWS CLI}]
+mkdir -p ~/.aws
+
+# Crear archivo de credenciales
+cat > ~/.aws/credentials << 'EOF'
+[default]
+aws_access_key_id = TU_ACCESS_KEY_AQUI
+aws_secret_access_key = TU_SECRET_KEY_AQUI
+aws_session_token = TU_SESSION_TOKEN_AQUI
+EOF
+
+# Crear archivo de configuracion
+cat > ~/.aws/config << 'EOF'
+[default]
+region = us-east-1
+output = json
+EOF
+
+# Permisos correctos (importante)
+chmod 600 ~/.aws/credentials ~/.aws/config
+\end{lstlisting}
+
+\textbf{IMPORTANTE}: Las credenciales de AWS Academy \textbf{caducan cada 3-4 horas}. Cuando caduquen, repite el proceso.
+
+\subsubsection{Verificar acceso}
+
+\begin{lstlisting}[language=Bash, caption={Verificar que las credenciales funcionan}]
+# Identidad
+aws sts get-caller-identity
+# Output esperado:
+# {
+#     "UserId": "AROA...",
+#     "Account": "123456789012",
+#     "Arn": "arn:aws:sts::123456789012:assumed-role/LabRole/..."
+# }
+
+# Verificar region
+aws configure get region
+# Output: us-east-1
+
+# Verificar que LabRole existe
+aws iam get-role --role-name LabRole
+
+# Crear bucket para SAM artifacts
+BUCKET_NAME="sentinel-sam-artifacts-$(date +%s)"
+aws s3 mb s3://$BUCKET_NAME --region us-east-1
+echo "Bucket creado: $BUCKET_NAME"
+# GUARDAR este nombre, lo necesitaras despues
+echo $BUCKET_NAME > ~/.sentinel-sam-bucket
+\end{lstlisting}
+
+\subsection{0.2 Configurar Oracle OCI CLI}
+
+\subsubsection{Crear API key en OCI}
+
+\begin{enumerate}[leftmargin=*]
+    \item Ve a OCI Console: \url{https://cloud.oracle.com/}
+    \item Click en tu perfil (esquina superior derecha) $\rightarrow$ \textbf{User Settings}
+    \item Seccion \textbf{API Keys} $\rightarrow$ Click \textbf{``Add API Key''}
+    \item Click \textbf{``Download Private Key''} y \textbf{``Download Public Key''}
+    \item Click \textbf{``Add''}
+    \item \textbf{Copia el Fingerprint} que aparece (lo necesitaras)
+\end{enumerate}
+
+\subsubsection{Configurar OCI CLI}
+
+\begin{lstlisting}[language=Bash, caption={Instalar y configurar OCI CLI}]
+# Instalar
+bash -c "$(curl -L https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh)"
+
+# Agregar al PATH (agregar a tu ~/.bashrc o ~/.zshrc)
+echo 'export PATH="$HOME/lib/oracle-cli/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+
+# Verificar instalacion
+oci --version
+\end{lstlisting}
+
+\begin{lstlisting}[language=Bash, caption={Configurar OCI con el config file}]
+# Crear directorio de OCI
+mkdir -p ~/.oci
+
+# Mover las keys descargadas
+mv ~/Downloads/api_key.pem ~/.oci/
+mv ~/Downloads/*_fingerprint ~/.oci/  # el fingerprint file
+
+# Configurar permisos
+chmod 600 ~/.oci/api_key.pem
+
+# Crear config file
+cat > ~/.oci/config << EOF
+[DEFAULT]
+user=ocid1.user.oc1..TU_USER_OCID
+tenancy=ocid1.tenancy.oc1..TU_TENANCY_OCID
+region=us-chicago-1
+key_file=$HOME/.oci/api_key.pem
+fingerprint=TU_FINGERPRINT_AQUI
+EOF
+
+chmod 600 ~/.oci/config
+\end{lstlisting}
+
+\begin{lstlisting}[language=Bash, caption={Verificar acceso a OCI}]
+# Test basico
+oci iam region-subscription list
+# Debe listar las regiones disponibles
+
+# Obtener tu Tenancy OCID (si no lo tienes)
+oci iam tenancy get --tenancy-id ocid1.tenancy.oc1..TU_TENANCY_OCID
+\end{lstlisting}
+
+\subsubsection{Crear Compartment y obtener OCIDs}
+
+\begin{lstlisting}[language=Bash, caption={Setup de OCI}]
+# Obtener Tenancy OCID
+TENANCY_OCID=$(aws configure get tenancy_id 2>/dev/null || oci iam compartment list --all --query 'data[0]."compartment-id"' --raw-output 2>/dev/null)
+# Si no funciona, sacalo del OCI Console
+
+# Crear compartment para el proyecto
+oci iam compartment create \
+  --compartment-id $TENANCY_OCID \
+  --name "SentinelAcademia" \
+  --description "Compartment para hackaton Sentinel AcademIA"
+
+# GUARDAR el OCID del compartment que se creo
+COMPARTMENT_OCID="ocid1.compartment.oc1..AQUI_TU_COMPARTMENT_OCID"
+echo "export OCI_COMPARTMENT_ID=$COMPARTMENT_OCID" >> ~/.bashrc
+echo $COMPARTMENT_OCID > ~/.sentinel-compartment
+\end{lstlisting}
+
+\subsubsection{Probar OCI Generative AI}
+
+\begin{lstlisting}[language=Bash, caption={Test de OCI GenAI}]
+# Verificar modelos disponibles
+oci generative-ai-inference model list \
+  --compartment-id $COMPARTMENT_OCID \
+  --query 'data[*].display-name' \
+  --output table
+
+# Probar Cohere Command R
+oci generative-ai-inference generate-text \
+  --compartment-id $COMPARTMENT_OCID \
+  --serving-mode '{"modelId":"cohere.command-r","servingType":"ON_DEMAND"}' \
+  --inference-request '{"prompt":"Di hola en espanol","maxTokens":50}'
+
+# Si funciona, veras un JSON con la respuesta
+\end{lstlisting}
+
+\subsection{0.3 Clonar el repositorio}
+
+\begin{lstlisting}[language=Bash, caption={Setup del proyecto}]
+# Clonar (o descargar como ZIP si es privado)
+git clone https://github.com/tu-usuario/sentinel-academia.git
+cd sentinel-academia
+
+# Instalar dependencias del backend
+cd src
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cd ..
+
+# Instalar dependencias del frontend
+cd web
+npm install
+cd ..
+
+# Verificar estructura
+ls -la
+\end{lstlisting}
+
+% ============================================
+\section{FASE 1: Backend Core (Python Lambdas)}
+% ============================================
+
+\subsection{1.1 Setup del proyecto Python}
+
+\subsubsection{Estructura de carpetas}
+
+\begin{lstlisting}[language=Bash, caption={Crear estructura del backend}]
+cd src
+mkdir -p handlers/_shared
+mkdir -p services
+mkdir -p types
+mkdir -p tests/{fixtures,handlers,services}
+touch handlers/__init__.py
+touch handlers/_shared/__init__.py
+touch services/__init__.py
+touch types/__init__.py
+touch tests/__init__.py
+\end{lstlisting}
+
+\subsubsection{Archivo de dependencias (requirements.txt)}
+
+\begin{lstlisting}[caption={src/requirements.txt}]
+boto3>=1.34
+boto3-stubs[dynamodb,lambda,s3,sqs,sns,events]>=1.34
+aws-lambda-powertools[tracer,metrics,validation]>=2.30
+pydantic>=2.6
+pydantic-settings>=2.2
+opossum>=1.4
+p-retry>=1.0
+rate-limiter-flexible>=2.4
+oci>=2.119
+
+# Dev dependencies
+pytest>=8.0
+pytest-mock>=3.12
+pytest-cov>=4.1
+moto[dynamodb,s3,sqs,sns,events]>=5.0
+freezegun>=1.4
+responses>=0.25
+ruff>=0.3
+mypy>=1.8
+black>=24.0
+boto3-stubs[essential]>=1.34
+\end{lstlisting}
+
+\subsubsection{pyproject.toml}
+
+\begin{lstlisting}[caption={src/pyproject.toml}]
+[project]
+name = "sentinel-academia-backend"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "boto3>=1.34",
+    "boto3-stubs[dynamodb,lambda,s3,sqs,sns]>=1.34",
+    "aws-lambda-powertools[tracer,metrics,validation]>=2.30",
+    "pydantic>=2.6",
+    "pydantic-settings>=2.2",
+    "opossum>=1.4",
+    "p-retry>=1.0",
+    "rate-limiter-flexible>=2.4",
+    "oci>=2.119",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-mock>=3.12",
+    "pytest-cov>=4.1",
+    "moto[dynamodb,s3,sqs,sns,events]>=5.0",
+    "freezegun>=1.4",
+    "responses>=0.25",
+    "ruff>=0.3",
+    "mypy>=1.8",
+    "black>=24.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "DTZ", "RET", "SIM"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unused_ignores = true
+warn_return_any = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --cov=. --cov-report=term-missing"
+\end{lstlisting}
+
+\subsubsection{Variables de entorno (.env)}
+
+\begin{lstlisting}[caption={src/.env}]
+# AWS
+AWS_REGION=us-east-1
+DYNAMODB_TABLE=quejas
+S3_BUCKET=sentinel-quejas-adjuntos-DONDE_VA_TU_ACCOUNT_ID
+PROCESS_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/DONDE_VA_TU_ACCOUNT_ID/complaints-queue
+CRITICAL_ALERTS_TOPIC_ARN=arn:aws:sns:us-east-1:DONDE_VA_TU_ACCOUNT_ID:critical-alerts
+
+# OCI
+OCI_COMPARTMENT_ID=ocid1.compartment.oc1..AQUI_TU_COMPARTMENT
+OCI_REGION=us-chicago-1
+OCI_CONFIG_FILE=/home/tu-usuario/.oci/config
+OCI_CONFIG_PROFILE=DEFAULT
+
+# Email (SES)
+SES_FROM_EMAIL=alerts@sentinel-academia.com
+BIENESTAR_EMAIL=bienestar@universidad-ejemplo.edu
+DIRECTOR_EMAIL=director@universidad-ejemplo.edu
+
+# Multi-tenant
+DEFAULT_TENANT_ID=universidad-ejemplo
+
+# Logging
+LOG_LEVEL=INFO
+POWERTOOLS_SERVICE_NAME=sentinel-academia
+\end{lstlisting}
+
+\subsection{1.2 Shared Modules}
+
+\subsubsection{Config}
+
+\begin{lstlisting}[language=Python, caption={src/handlers/\_shared/config.py}]
+"""Configuracion tipada con pydantic-settings."""
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """Settings cargados desde variables de entorno."""
+
+    # AWS
+    aws_region: str = "us-east-1"
+    dynamodb_table: str = "quejas"
+    s3_bucket: str = "sentinel-quejas-adjuntos"
+    process_queue_url: str = ""
+    critical_alerts_topic_arn: str = ""
+
+    # OCI
+    oci_compartment_id: str = ""
+    oci_region: str = "us-chicago-1"
+
+    # Email
+    ses_from_email: str = "alerts@sentinel-academia.com"
+    bienestar_email: str = "bienestar@universidad.edu"
+    director_email: str = "director@universidad.edu"
+
+    # Multi-tenant
+    default_tenant_id: str = "universidad-ejemplo"
+
+    # Logging
+    log_level: str = "INFO"
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+
+settings = Settings()
+\end{lstlisting}
+
+\subsubsection{Logger}
+
+\begin{lstlisting}[language=Python, caption={src/handlers/\_shared/logger.py}]
+"""Logger con aws-lambda-powertools."""
+from aws_lambda_powertools import Logger
+
+logger = Logger(service="sentinel-academia")
+\end{lstlisting}
+
+\subsubsection{HTTP Response Helpers}
+
+\begin{lstlisting}[language=Python, caption={src/handlers/\_shared/http\_response.py}]
+"""Helpers para respuestas HTTP consistentes."""
+import json
+from typing import Any, Optional
+
+
+def _response(status_code: int, body: Any, correlation_id: str) -> dict:
+    return {
+        "statusCode": status_code,
+        "headers": {
+            "Content-Type": "application/json",
+            "x-correlation-id": correlation_id,
+        },
+        "body": json.dumps(body, default=str),
+    }
+
+
+def ok(body: Any, correlation_id: str) -> dict:
+    return _response(200, body, correlation_id)
+
+
+def accepted(body: Any, correlation_id: str) -> dict:
+    return _response(202, body, correlation_id)
+
+
+def bad_request(message: str, details: Optional[Any], correlation_id: str) -> dict:
+    return _response(400, {
+        "code": "BAD_REQUEST", "message": message, "details": details, "correlationId": correlation_id
+    }, correlation_id)
+
+
+def not_found(message: str, correlation_id: str) -> dict:
+    return _response(404, {
+        "code": "NOT_FOUND", "message": message, "correlationId": correlation_id
+    }, correlation_id)
+
+
+def server_error(message: str, correlation_id: str) -> dict:
+    return _response(500, {
+        "code": "INTERNAL_ERROR", "message": message, "correlationId": correlation_id
+    }, correlation_id)
+\end{lstlisting}
+
+\subsubsection{Error Handler}
+
+\begin{lstlisting}[language=Python, caption={src/handlers/\_shared/errors.py}]
+"""Decorator para manejo uniforme de errores."""
+from functools import wraps
+from typing import Callable, Any
+from pydantic import ValidationError
+from .http_response import bad_request, server_error
+from .logger import logger
+
+
+def with_error_handling(handler_func: Callable) -> Callable:
+    @wraps(handler_func)
+    def wrapper(event: dict, context: Any) -> dict:
+        try:
+            return handler_func(event, context)
+        except ValidationError as e:
+            logger.warning("Validation error", extra={"errors": e.errors()})
+            return bad_request("Validation error", e.errors(), _get_correlation_id(event))
+        except Exception:
+            logger.exception("Unhandled error")
+            return server_error("Internal error", _get_correlation_id(event))
+    return wrapper
+
+
+def _get_correlation_id(event: dict) -> str:
+    return event.get("headers", {}).get("x-correlation-id", "unknown")
+\end{lstlisting}
+
+\subsubsection{Correlation ID}
+
+\begin{lstlisting}[language=Python, caption={src/handlers/\_shared/correlation\_id.py}]
+"""Helper para correlation ID."""
+import uuid
+from typing import Optional
+
+
+def get_correlation_id(event: dict) -> str:
+    """Extrae correlation ID del header o genera uno nuevo."""
+    headers = event.get("headers", {}) or {}
+    return headers.get("x-correlation-id") or str(uuid.uuid4())
+\end{lstlisting}
+
+\subsubsection{DynamoDB Client}
+
+\begin{lstlisting}[language=Python, caption={src/handlers/\_shared/dynamo\_client.py}]
+"""Cliente DynamoDB cacheado."""
+import os
+from functools import lru_cache
+from typing import Any
+import boto3
+
+
+@lru_cache(maxsize=1)
+def get_dynamo_resource() -> Any:
+    return boto3.resource(
+        "dynamodb",
+        region_name=os.environ.get("AWS_REGION", "us-east-1"),
+    )
+
+
+@lru_cache(maxsize=1)
+def get_dynamo_client() -> Any:
+    return boto3.client(
+        "dynamodb",
+        region_name=os.environ.get("AWS_REGION", "us-east-1"),
+    )
+
+
+TABLE_NAME = os.environ.get("DYNAMODB_TABLE", "quejas")
+DEFAULT_TENANT_ID = os.environ.get("DEFAULT_TENANT_ID", "universidad-ejemplo")
+\end{lstlisting}
+
+\subsubsection{Pydantic Schemas}
+
+\begin{lstlisting}[language=Python, caption={src/handlers/\_shared/schemas.py}]
+"""Schemas Pydantic para input/output."""
+from enum import Enum
+from typing import Optional, List
+from pydantic import BaseModel, Field, field_validator, ConfigDict
+
+
+class CategoriaEnum(str, Enum):
+    ACADEMICA = "ACADEMICA"
+    INFRAESTRUCTURA = "INFRAESTRUCTURA"
+    ACOSO = "ACOSO"
+    ADMINISTRATIVA = "ADMINISTRATIVA"
+    SALUD = "SALUD"
+    OTRA = "OTRA"
+
+
+class CriticidadEnum(str, Enum):
+    BAJA = "BAJA"
+    MEDIA = "MEDIA"
+    ALTA = "ALTA"
+    CRITICA = "CRITICA"
+
+
+class QuejaStatusEnum(str, Enum):
+    PENDIENTE = "PENDIENTE"
+    EN_COLA = "EN_COLA"
+    PROCESANDO = "PROCESANDO"
+    ANALIZADA = "ANALIZADA"
+    NOTIFICADA = "NOTIFICADA"
+    ERROR = "ERROR"
+
+
+class CreateQuejaInput(BaseModel):
+    titulo: str = Field(min_length=5, max_length=120)
+    descripcion: str = Field(min_length=20, max_length=5000)
+    categoria_declarada: CategoriaEnum
+    adjuntos: Optional[List[str]] = Field(default=None, max_length=5)
+    anonima: bool = False
+    sede: Optional[str] = Field(default=None, max_length=100)
+    facultad: Optional[str] = Field(default=None, max_length=100)
+    contacto_email: Optional[str] = None
+
+    @field_validator("descripcion")
+    @classmethod
+    def descripcion_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("La descripcion no puede estar vacia")
+        return v.strip()
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+
+class QuejaAccepted(BaseModel):
+    quejaId: str
+    status: QuejaStatusEnum
+    correlationId: str
+    createdAt: str
+    estimatedAnalysisTime: Optional[int] = None
+
+
+class AnalisisOutput(BaseModel):
+    categoria: CategoriaEnum
+    subcategoria: str
+    criticidad: CriticidadEnum
+    criticidadJustificacion: str
+    sentimiento: str
+    entidades: List[dict] = Field(default_factory=list)
+    temasClave: List[str] = Field(default_factory=list)
+    accionSugerida: str
+    prioridad: int = Field(ge=1, le=10)
+    requiereNotificacionInmediata: bool
+    modeloUsado: str
+    tokensConsumidos: Optional[int] = None
+    latenciaMs: Optional[int] = None
+\end{lstlisting}
+
+\subsection{1.3 Lambda createQueja (la mas importante)}
+
+\begin{lstlisting}[language=Python, caption={src/handlers/create\_queja.py}]
+"""POST /api/quejas - Crea una queja y la encola para analisis."""
+import json
+import uuid
+from datetime import datetime, timezone
+from typing import Any
+
+import boto3
+from aws_lambda_powertools import Logger
+from pydantic import ValidationError
+
+from ._shared.config import settings
+from ._shared.correlation_id import get_correlation_id
+from ._shared.dynamo_client import get_dynamo_resource
+from ._shared.errors import with_error_handling
+from ._shared.http_response import accepted, bad_request
+from ._shared.schemas import CreateQuejaInput
+
+logger = Logger(service="create-queja")
+
+
+@logger.inject_lambda_context(log_event=True)
+@with_error_handling
+def handler(event: dict, context: Any) -> dict:
+    correlation_id = get_correlation_id(event)
+    logger.append_keys(correlation_id=correlation_id)
+    logger.info("create_queja invoked")
+
+    # 1. Validar input
+    try:
+        body = CreateQuejaInput.model_validate_json(event.get("body", "{}"))
+    except ValidationError as e:
+        return bad_request("Invalid input", e.errors(), correlation_id)
+
+    # 2. Generar IDs
+    queja_id = str(uuid.uuid4())
+    tenant_id = settings.default_tenant_id
+    logger.append_keys(queja_id=queja_id, tenant_id=tenant_id)
+
+    # 3. Persistir en DynamoDB
+    table = get_dynamo_resource().Table(settings.dynamodb_table)
+    now = datetime.now(timezone.utc)
+    table.put_item(Item={
+        "pk": f"TENANT#{tenant_id}#QUEJA#{queja_id}",
+        "sk": "META",
+        "tenantId": tenant_id,
+        "quejaId": queja_id,
+        "titulo": body.titulo,
+        "descripcion": body.descripcion,
+        "categoriaDeclarada": body.categoria_declarada.value,
+        "status": "EN_COLA",
+        "anonima": body.anonima,
+        "sede": body.sede,
+        "facultad": body.facultad,
+        "createdAt": now.isoformat(),
+        "ttl": int(now.timestamp()) + (90 * 24 * 60 * 60),
+    })
+
+    # 4. Encolar para procesamiento async
+    boto3.client("sqs").send_message(
+        QueueUrl=settings.process_queue_url,
+        MessageBody=json.dumps({
+            "eventType": "queja.creada",
+            "payload": {"quejaId": queja_id, "input": body.model_dump(mode="json")},
+            "metadata": {"correlationId": correlation_id},
+        }),
+        MessageAttributes={
+            "correlationId": {"DataType": "String", "StringValue": correlation_id},
+        },
+    )
+
+    logger.info("Queja creada exitosamente")
+    return accepted({
+        "quejaId": queja_id,
+        "status": "EN_COLA",
+        "correlationId": correlation_id,
+        "createdAt": now.isoformat(),
+        "estimatedAnalysisTime": 30,
+    }, correlation_id)
+\end{lstlisting}
+
+\subsection{1.4 SAM Template (template.yaml)}
+
+\begin{lstlisting}[language=YAML, caption={src/infra/template.yaml}]
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Globals:
+  Function:
+    Runtime: python3.12
+    MemorySize: 512
+    Timeout: 30
+    Tracing: Active
+    Environment:
+      Variables:
+        POWERTOOLS_SERVICE_NAME: sentinel-academia
+        LOG_LEVEL: INFO
+        DYNAMODB_TABLE: !Ref QuejasTable
+        DEFAULT_TENANT_ID: universidad-ejemplo
+        OCI_COMPARTMENT_ID: !Ref OciCompartmentId
+        AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+
+Parameters:
+  OciCompartmentId:
+    Type: String
+    Description: OCI Compartment OCID for Generative AI
+
+Resources:
+
+  # DynamoDB Table
+  QuejasTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: quejas
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: pk, AttributeType: S }
+        - { AttributeName: sk, AttributeType: S }
+        - { AttributeName: quejaId, AttributeType: S }
+        - { AttributeName: tenantId, AttributeType: S }
+        - { AttributeName: createdAt, AttributeType: S }
+        - { AttributeName: criticidad, AttributeType: S }
+      KeySchema:
+        - { AttributeName: pk, KeyType: HASH }
+        - { AttributeName: sk, KeyType: RANGE }
+      GlobalSecondaryIndexes:
+        - IndexName: GSI_ById
+          KeySchema: [{ AttributeName: quejaId, KeyType: HASH }]
+          Projection: { ProjectionType: ALL }
+        - IndexName: GSI_ByTenant
+          KeySchema:
+            - { AttributeName: tenantId, KeyType: HASH }
+            - { AttributeName: createdAt, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  # SQS Queues
+  ComplaintsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: complaints-queue
+      VisibilityTimeout: 180
+      MessageRetentionPeriod: 1209600
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt ComplaintsDLQ.Arn
+        maxReceiveCount: 3
+
+  ComplaintsDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: complaints-dlq
+      MessageRetentionPeriod: 1209600
+
+  # SNS Topic
+  CriticalAlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: critical-alerts
+
+  # S3 Bucket
+  AdjuntosBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins: ['*']
+            AllowedMethods: [GET, PUT, POST]
+            AllowedHeaders: ['*']
+
+  # API Gateway
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: sentinel-academia-api
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins: ['*']
+        AllowMethods: ['*']
+        AllowHeaders: ['*']
+
+  # Lambda Functions
+  CreateQuejaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../
+      Handler: handlers/create_queja.handler
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /quejas
+            Method: POST
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref QuejasTable }
+        - SQSSendMessagePolicy: { QueueName: !GetAtt ComplaintsQueue.QueueName }
+
+  GetQuejaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../
+      Handler: handlers/get_queja.handler
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /quejas/{id}
+            Method: GET
+      Policies:
+        - DynamoDBReadPolicy: { TableName: !Ref QuejasTable }
+
+  ListQuejasFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../
+      Handler: handlers/list_quejas.handler
+      Events:
+        Api:
+          Type: HttpApi
+            Properties:
+              ApiId: !Ref HttpApi
+              Path: /quejas
+              Method: GET
+      Policies:
+        - DynamoDBReadPolicy: { TableName: !Ref QuejasTable }
+
+  ProcessQuejaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../
+      Handler: handlers/process_queja.handler
+      MemorySize: 1024
+      Timeout: 300
+      Events:
+        SQS:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt ComplaintsQueue.Arn
+            BatchSize: 5
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref QuejasTable }
+        - S3ReadPolicy: { BucketName: !Ref AdjuntosBucket }
+
+Outputs:
+  ApiUrl:
+    Value: !GetAtt HttpApi.ApiEndpoint
+    Export: { Name: SentinelApiUrl }
+  TableName:
+    Value: !Ref QuejasTable
+  QueueUrl:
+    Value: !Ref ComplaintsQueue
+\end{lstlisting}
+
+\subsection{1.5 Deploy del backend}
+
+\begin{lstlisting}[language=Bash, caption={Build y deploy con SAM}]
+cd src/infra
+
+# Build
+sam build
+# Output: Build Succeeded
+
+# Deploy (primera vez)
+sam deploy --guided
+# Responder:
+#   Stack Name: sentinel-academia-dev
+#   AWS Region: us-east-1
+#   Parameter OciCompartmentId: <tu OCID>
+#   Confirmar cambios: y
+#   Permitir IAM: y
+#   Save to samconfig.toml: y
+
+# Deploys subsecuentes
+sam deploy
+
+# Ver outputs
+aws cloudformation describe-stacks \
+  --stack-name sentinel-academia-dev \
+  --query 'Stacks[0].Outputs'
+\end{lstlisting}
+
+% ============================================
+\section{FASE 2: Backend LLM (OCI Integration)}
+% ============================================
+
+\subsection{2.1 Cliente OCI Generative AI}
+
+\begin{lstlisting}[language=Python, caption={src/services/oci\_genai.py}]
+"""Cliente para OCI Generative AI Service."""
+from typing import Any
+import oci
+from oci.generative_ai_inference import GenerativeAiInferenceClient
+from oci.generative_ai_inference.models import (
+    GenerateTextDetails, ChatDetails, TextContent
+)
+
+
+class OCIGenAIClient:
+    def __init__(self, compartment_id: str, region: str = "us-chicago-1"):
+        config = oci.config.from_file("~/.oci/config", "DEFAULT")
+        self.client = GenerativeAiInferenceClient(config=config, region=region)
+        self.compartment_id = compartment_id
+
+    def generate_text(
+        self, prompt: str, model_id: str = "cohere.command-r",
+        max_tokens: int = 1000, temperature: float = 0.3
+    ) -> str:
+        details = GenerateTextDetails(
+            compartment_id=self.compartment_id,
+            serving_mode={"modelId": model_id, "servingType": "ON_DEMAND"},
+            inference_request={
+                "prompt": prompt,
+                "maxTokens": max_tokens,
+                "temperature": temperature,
+                "isStream": False,
+            },
+        )
+        response = self.client.generate_text(generate_text_details=details)
+        return response.data.inference_response.inference_text
+\end{lstlisting}
+
+\subsection{2.2 LLM Router con Circuit Breaker}
+
+\begin{lstlisting}[language=Python, caption={src/services/llm\_router.py}]
+"""Router de LLM con fallback chain."""
+import opossum
+from .oci_genai import OCIGenAIClient
+
+# Breakers por modelo
+breaker_primary = opossum.CircuitBreaker(
+    call=lambda p: oci.generate(p, "cohere.command-r"),
+    timeout=30,
+    error_threshold_percentage=50,
+    reset_timeout=30,
+)
+
+breaker_secondary = opossum.CircuitBreaker(
+    call=lambda p: oci.generate(p, "meta.llama-3.1-70b-instruct"),
+    timeout=30,
+    error_threshold_percentage=50,
+    reset_timeout=30,
+)
+
+
+def generate_with_fallback(prompt: str) -> str:
+    """Intenta modelos en orden, con fallback."""
+    models = [
+        ("cohere.command-r", breaker_primary),
+        ("meta.llama-3.1-70b-instruct", breaker_secondary),
+    ]
+
+    for model_name, breaker in models:
+        try:
+            return breaker.call(prompt)
+        except Exception:
+            continue
+
+    return json.dumps({"error": "Todos los modelos fallaron"})
+\end{lstlisting}
+
+% ============================================
+\section{FASE 3: Frontend Vue 3}
+% ============================================
+
+\subsection{3.1 Setup}
+
+\begin{lstlisting}[language=Bash, caption={Setup del frontend}]
+cd web
+npm install
+cp .env.example .env.local
+# Editar .env.local con la URL del API Gateway
+
+npm run dev
+# Abrir http://localhost:5173
+\end{lstlisting}
+
+\subsection{3.2 Deploy a Vercel}
+
+\begin{lstlisting}[language=Bash, caption={Deploy a Vercel con CLI}]
+npm install -g vercel
+
+# Login
+vercel login
+
+# Deploy
+vercel --prod
+
+# Opciones:
+# - Framework: Vite
+# - Build: npm run build
+# - Output: dist
+# - Root: ./
+\end{lstlisting}
+
+% ============================================
+\section{FASE 4: Archivos + Email}
+% =========================================%
+
+\subsection{4.1 S3 + Presigned URLs}
+
+\begin{lstlisting}[language=Python, caption={src/handlers/get\_upload\_url.py}]
+"""POST /api/uploads/presigned - Genera presigned URL para S3."""
+import uuid
+from typing import Any
+import boto3
+from aws_lambda_powertools import Logger
+from botocore.config import Config
+from ._shared.config import settings
+from ._shared.correlation_id import get_correlation_id
+from ._shared.errors import with_error_handling
+from ._shared.http_response import ok
+
+logger = Logger(service="get-upload-url")
+
+
+@logger.inject_lambda_context
+@with_error_handling
+def handler(event: dict, context: Any) -> dict:
+    correlation_id = get_correlation_id(event)
+    body = json.loads(event.get("body", "{}"))
+    filename = body["filename"]
+    content_type = body["contentType"]
+    queja_id = body["quejaId"]
+
+    s3 = boto3.client("s3", config=Config(signature_version="s3v4"))
+    key = f"tenants/{settings.default_tenant_id}/quejas/{queja_id}/{uuid.uuid4()}-{filename}"
+
+    url = s3.generate_presigned_url(
+        "put_object",
+        Params={"Bucket": settings.s3_bucket, "Key": key, "ContentType": content_type},
+        ExpiresIn=300,
+    )
+
+    return ok({"uploadUrl": url, "key": key, "expiresIn": 300}, correlation_id)
+\end{lstlisting}
+
+\subsection{4.2 Email con SES}
+
+\begin{lstlisting}[language=Python, caption={src/handlers/notify.py}]
+"""Consumer SNS que envia emails via SES para casos CRITICOS."""
+import json
+from typing import Any
+import boto3
+from aws_lambda_powertools import Logger
+from ._shared.config import settings
+from ._shared.errors import with_error_handling
+
+logger = Logger(service="notify")
+
+
+@logger.inject_lambda_context
+@with_error_handling
+def handler(event: dict, context: Any) -> None:
+    for record in event.get("Records", []):
+        sns = record["Sns"]
+        message = json.loads(sns["Message"])
+        analysis = message.get("detail", {}).get("analysis", {})
+
+        if analysis.get("criticidad") != "CRITICA":
+            continue
+
+        ses = boto3.client("ses")
+        ses.send_email(
+            Source=settings.ses_from_email,
+            Destination={"ToAddresses": [settings.bienestar_email, settings.director_email]},
+            Message={
+                "Subject": {"Data": f"ALERTA: Queja CRITICA {message['detail']['quejaId']}"},
+                "Body": {
+                    "Text": {"Data": f"Queja critica detectada.\nAccion: {analysis.get('accionSugerida', 'N/A')}"}
+                },
+            },
+        )
+        logger.info("Email sent")
+\end{lstlisting}
+
+% ============================================
+\section{FASE 5: RAG (Opcional)}
+% ============================================
+
+\subsection{5.1 Ingesta del reglamento}
+
+\begin{lstlisting}[language=Python, caption={src/services/rag\_ingest.py}]
+"""Ingesta de documentos para RAG."""
+import boto3
+import cohere
+from .oci_genai import OCIGenAIClient
+
+
+def ingest_document(s3_key: str, oci_client: OCIGenAIClient):
+    """Descarga documento de S3, lo chunk-ea, genera embeddings, guarda en DynamoDB."""
+    s3 = boto3.client("s3")
+    obj = s3.get_object(Bucket="reglamento-bucket", Key=s3_key)
+    text = obj["Body"].read().decode("utf-8")
+
+    # Chunking (500 chars con overlap de 50)
+    chunks = [text[i:i+500] for i in range(0, len(text), 450)]
+
+    # Generar embeddings con Cohere
+    co = cohere.Client("tu-api-key")
+    response = co.embed(texts=chunks, model="embed-multilingual-v3.0")
+    embeddings = response.embeddings
+
+    # Guardar en DynamoDB
+    # ... (similar a otros repos)
+\end{lstlisting}
+
+% ============================================
+\section{FASE 6: Testing}
+% ============================================
+
+\subsection{6.1 Tests unitarios}
+
+\begin{lstlisting}[language=Bash, caption={Ejecutar tests}]
+cd src
+source .venv/bin/activate
+
+# Todos los tests
+pytest
+
+# Con coverage
+pytest --cov=. --cov-report=html
+
+# Solo un test especifico
+pytest tests/handlers/test_create_queja.py
+
+# Ver reporte HTML
+open htmlcov/index.html
+\end{lstlisting}
+
+\begin{lstlisting}[language=Python, caption={tests/handlers/test\_create\_queja.py}]
+import json
+import pytest
+from moto import mock_aws
+import boto3
+from src.handlers.create_queja import handler
+
+
+@pytest.fixture
+def event():
+    return {
+        "body": json.dumps({
+            "titulo": "Test",
+            "descripcion": "Descripcion suficientemente larga",
+            "categoriaDeclarada": "ACADEMICA",
+        }),
+        "headers": {"x-correlation-id": "test-123"},
+    }
+
+
+@mock_aws
+def test_create_queja_success(event, monkeypatch):
+    # Setup
+    client = boto3.client("dynamodb", region_name="us-east-1")
+    client.create_table(
+        TableName="quejas",
+        KeySchema=[{"AttributeName": "pk", "KeyType": "HASH"}],
+        AttributeDefinitions=[{"AttributeName": "pk", "AttributeType": "S"}],
+        BillingMode="PAY_PER_REQUEST",
+    )
+    monkeypatch.setenv("DYNAMODB_TABLE", "quejas")
+
+    # Mock SQS
+    sqs = boto3.client("sqs", region_name="us-east-1")
+    q = sqs.create_queue(QueueName="test-queue")
+    monkeypatch.setenv("PROCESS_QUEUE_URL", q["QueueUrl"])
+
+    # Act
+    result = handler(event, None)
+
+    # Assert
+    assert result["statusCode"] == 202
+    body = json.loads(result["body"])
+    assert "quejaId" in body
+\end{lstlisting}
+
+% ============================================
+\section{FASE 7: Deploy Final}
+% ============================================
+
+\subsection{7.1 Deploy completo}
+
+\begin{lstlisting}[language=Bash, caption={Deploy final paso a paso}]
+# 1. Backend
+cd src/infra
+sam build && sam deploy
+
+# Guardar la URL del API
+API_URL=$(aws cloudformation describe-stacks --stack-name sentinel-academia-dev --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' --output text)
+echo "API URL: $API_URL"
+
+# 2. Frontend
+cd ../../web
+# Actualizar VITE_API_URL en .env
+echo "VITE_API_URL=$API_URL" > .env.production
+npm run build
+vercel --prod
+
+# 3. Verificacion
+curl $API_URL/quejas
+# Debe responder 200
+\end{lstlisting}
+
+\subsection{7.2 Smoke tests}
+
+\begin{lstlisting}[language=Bash, caption={Verificacion end-to-end}]
+# Crear queja de prueba
+curl -X POST $API_URL/quejas \
+  -H "Content-Type: application/json" \
+  -H "x-correlation-id: smoke-test-1" \
+  -d '{
+    "titulo": "Smoke test",
+    "descripcion": "Verificacion de deploy",
+    "categoriaDeclarada": "OTRA"
+  }'
+
+# Ver logs
+sam logs -n CreateQuejaFunction --tail
+
+# Verificar que se guardo
+aws dynamodb scan --table-name quejas --max-items 1
+\end{lstlisting}
+
+% ============================================
+\section{Ap\'endice A: Comandos \'utiles}
+% ============================================
+
+\begin{lstlisting}[language=Bash, caption={Cheatsheet de comandos}]
+# Ver logs en tiempo real
+sam logs -n CreateQuejaFunction --tail --stack-name sentinel-academia-dev
+
+# Invocar una Lambda manualmente
+sam remote invoke -n CreateQuejaFunction --event '{"body":"{}","headers":{}}'
+
+# Ver outputs del stack
+aws cloudformation describe-stacks --stack-name sentinel-academia-dev --query 'Stacks[0].Outputs'
+
+# Borrar todo (empezar de cero)
+sam delete --stack-name sentinel-academia-dev
+
+# Ver costos del mes
+aws ce get-cost-and-usage --time-period Start=2025-01-01,End=2025-01-31 --granularity MONTHLY --metrics BlendedCost
+
+# Test del LLM con OCI
+oci generative-ai-inference generate-text \
+  --compartment-id $OCI_COMPARTMENT_ID \
+  --serving-mode '{"modelId":"cohere.command-r","servingType":"ON_DEMAND"}' \
+  --inference-request '{"prompt":"Test","maxTokens":50}'
+\end{lstlisting}
+
+% ============================================
+\section{Ap\'endice B: Troubleshooting}
+% ============================================
+
+\begin{tcolorbox}[colback=red!5!white, colframe=critical, title=\textbf{LabRole does not exist}]
+\textbf{Soluci\'on}: En AWS Academy, el LabRole es creado autom\'aticamente. Si no existe, ir a IAM $\rightarrow$ Roles $\rightarrow$ Create role $\rightarrow$ AWS service $\rightarrow$ Lambda $\rightarrow$ Attach policies: \texttt{AWSLambdaBasicExecutionRole} y \texttt{AWSLambdaVPCAccessExecutionRole}.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=red!5!white, colframe=critical, title=\textbf{OCI 404 Not Found en GenAI}]
+\textbf{Soluci\'on}:
+\begin{enumerate}
+    \item Verificar que el Compartment OCID es correcto
+    \item Verificar que la regi\'on soporta GenAI (us-chicago-1, eu-frankfurt-1)
+    \item Verificar policies del compartment
+\end{enumerate}
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=red!5!white, colframe=critical, title=\textbf{CORS error en frontend}]
+\textbf{Soluci\'on}: Verificar que el API Gateway tiene CORS configurado:
+\begin{lstlisting}[language=YAML]
+CorsConfiguration:
+  AllowOrigins: ['*']
+  AllowMethods: ['*']
+  AllowHeaders: ['*']
+\end{lstlisting}
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=red!5!white, colframe=critical, title=\textbf{Lambda timeout}]
+\textbf{Soluci\'on}: En \texttt{template.yaml}, subir el Timeout:
+\begin{lstlisting}[language=YAML]
+Globals:
+  Function:
+    Timeout: 120  # Subir de 30 a 120 segundos
+\end{lstlisting}
+\end{tcolorbox}
+
+% ============================================
+\section{Ap\'endice C: Variables de entorno}
+% ============================================
+
+\begin{longtable}{|p{5cm}|p{4cm}|p{5cm}|}
+\hline
+\rowcolor{primary!20}
+\textbf{Variable} & \textbf{Default} & \textbf{Proposito} \\
+\hline
+\endhead
+\texttt{POWERTOOLS\_SERVICE\_NAME} & sentinel-academia & Nombre del servicio en logs \\
+\texttt{LOG\_LEVEL} & INFO & Nivel de logging \\
+\texttt{AWS\_REGION} & us-east-1 & Region de AWS \\
+\texttt{DYNAMODB\_TABLE} & quejas & Nombre de la tabla \\
+\texttt{S3\_BUCKET} & - & Bucket de adjuntos \\
+\texttt{PROCESS\_QUEUE\_URL} & - & URL de SQS \\
+\texttt{CRITICAL\_ALERTS\_TOPIC\_ARN} & - & ARN del topic SNS \\
+\texttt{OCI\_COMPARTMENT\_ID} & - & OCID del compartment \\
+\texttt{OCI\_REGION} & us-chicago-1 & Region de OCI \\
+\texttt{SES\_FROM\_EMAIL} & - & Email remitente \\
+\texttt{BIENESTAR\_EMAIL} & - & Email de bienestar \\
+\texttt{DIRECTOR\_EMAIL} & - & Email del director \\
+\texttt{DEFAULT\_TENANT\_ID} & universidad-ejemplo & Tenant por defecto \\
+\end{longtable}
+
+% ============================================
+\section{Ap\'endice D: Costos esperados}
+% ============================================
+
+\begin{tabular}{|l|r|r|}
+\hline
+\rowcolor{primary!20}
+\textbf{Servicio} & \textbf{Hackaton (4 d\'ias)} & \textbf{Producci\'on (mes)} \\
+\hline
+AWS Lambda & \$0.00 & \$0.01 \\
+API Gateway & \$0.00 & \$0.03 \\
+DynamoDB & \$0.05 & \$3.00 \\
+SQS/SNS/EventBridge & \$0.00 & \$0.05 \\
+S3 & \$0.00 & \$0.30 \\
+CloudWatch & \$0.10 & \$0.50 \\
+\textbf{Subtotal AWS} & \textbf{\$0.15} & \textbf{\$4.00} \\
+\hline
+OCI Cohere R & \$0.50 & \$5.00 \\
+OCI Llama 3.1 & \$0.10 & \$2.00 \\
+OCI Document AI & \$0.00 & \$5.00 \\
+\textbf{Subtotal OCI} & \textbf{\$0.60} & \textbf{\$12.00} \\
+\hline
+Vercel & \$0.00 & \$0.00 \\
+\hline
+\textbf{TOTAL} & \textbf{\$0.75} & \textbf{\$16.00} \\
+\hline
+\end{tabular}
+
+\end{document}

@@ -1,0 +1,97 @@
+sequenceDiagram
+    autonumber
+    actor E as Estudiante
+    participant W as Web (Vue 3)
+    participant API as API Gateway
+    participant L1 as Lambda createQueja
+    participant DB as DynamoDB
+    participant Q as SQS Queue
+    participant L7 as Lambda processQueja
+    participant OCI as OCI GenAI
+    participant DocAI as OCI Document AI
+    participant S3 as S3
+    participant EB as EventBridge
+    participant SNS as SNS Topic
+    participant BW as Bienestar
+    participant NS as Lambda notifyStudent
+
+    E->>W: Llena formulario de queja
+    activate W
+    W->>W: Validacion local (Zod)
+    W->>API: POST /api/quejas + adjuntos
+    activate API
+    API->>L1: invoke (con correlationId)
+    activate L1
+
+    L1->>L1: Validar input (Zod)
+    L1->>DB: PutItem(QUEJA, status=EN_COLA)
+    activate DB
+    DB-->>L1: OK
+    deactivate DB
+
+    L1->>Q: SendMessage(idempotencyKey)
+    activate Q
+    Q-->>L1: MessageId
+    deactivate Q
+
+    L1-->>API: 202 Accepted {quejaId, status:EN_COLA}
+    deactivate L1
+    API-->>W: 202 Accepted
+    deactivate API
+    W-->>E: "Tu queja fue recibida<br/>ID: q-abc-123"
+    deactivate W
+
+    rect rgb(240, 248, 255)
+        Note over Q,L7: Procesamiento Asincrono (desacoplado)
+        Q->>L7: trigger (batch)
+        activate L7
+        L7->>L7: Check idempotencia
+        L7->>DB: GetItem(QUEJA)
+        activate DB
+        DB-->>L7: queja + adjuntos
+        deactivate DB
+
+        alt Si hay adjuntos (PDF/imagen)
+            L7->>S3: GetObject
+            activate S3
+            S3-->>L7: archivo
+            deactivate S3
+            L7->>DocAI: Extract text
+            activate DocAI
+            DocAI-->>L7: texto extraido
+            deactivate DocAI
+        end
+
+        L7->>OCI: Generate text (prompt estructurado)
+        activate OCI
+
+        Note over OCI: Circuit Breaker<br/>Cohere R -> Llama 3.1 -> R+
+
+        OCI-->>L7: {categoria, criticidad, ...}
+        deactivate OCI
+
+        L7->>L7: Validar output (Zod)
+        L7->>DB: PutItem(ANALYSIS) + Update(QUEJA, status=ANALIZADA)
+        activate DB
+        DB-->>L7: OK
+        deactivate DB
+
+        L7->>EB: PutEvent(queja.analizada)
+        activate EB
+        EB-->>L7: EventId
+        deactivate EB
+        L7-->>Q: ack
+        deactivate L7
+    end
+
+    EB->>SNS: Filter criticidad == CRITICA
+    activate SNS
+    SNS->>BW: Alerta inmediata (email/SMS)
+    deactivate SNS
+
+    EB->>NS: regla queja.analizada
+    activate NS
+    NS->>BW: Dashboard update
+    deactivate NS
+
+    Note over E,NS: Tiempo total desde queja hasta alerta critica: < 1 minuto

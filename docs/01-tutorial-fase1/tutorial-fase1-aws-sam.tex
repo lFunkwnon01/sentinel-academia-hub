@@ -1,0 +1,1106 @@
+% ============================================================
+% TUTORIAL: Fase 1 --- Backend Core con AWS SAM + Lambda + DynamoDB
+% Proyecto: Sentinel AcademIA
+% Compilar: tectonic tutorial-fase1-aws-sam.tex
+% ============================================================
+
+\documentclass[11pt,a4paper,oneside]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-nodecimaldot]{babel}
+\usepackage{lmodern}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{parskip}
+\usepackage{microtype}
+
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{amssymb}
+\usepackage{pifont}
+\usepackage{tcolorbox}
+\tcbuselibrary{breakable,skins}
+
+\usepackage{listings}
+
+\lstdefinelanguage{yaml}{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  stringstyle=\color{red!70!black},
+  commentstyle=\color{green!50!black}\itshape,
+  morekeywords={AWSTemplateFormatVersion,Transform,Description,Parameters,Globals,Resources,Outputs,Type,Properties,Environment,Variables,Events},
+  literate=
+    *{\{}{{{\{}}}{1}
+     {\}}{{{\}}}}{1}
+     {[}{{{[}}}{1}
+     {]}{{{]}}}{1}
+}
+
+\lstdefinelanguage{bash}{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  stringstyle=\color{red!70!black},
+  commentstyle=\color{green!50!black}\itshape,
+  morekeywords={aws,sam,cd,ls,mkdir,rm,cp,mv,export,unset,echo,cat,grep},
+}
+
+\lstdefinelanguage{json}{
+  basicstyle=\ttfamily\small,
+  showstringspaces=false,
+  breaklines=true,
+  literate=
+    *{\{}{{{\{}}}{1}
+     {\}}{{{\}}}}{1}
+     {[}{{{[}}}{1}
+     {]}{{{]}}}{1}
+     {:}{{{:}}}{1}
+     {,}{{{,}}}{1},
+  string=[s]{"}{"},
+  stringstyle=\color{red!70!black},
+  morestring=[b]",
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  numberstyle=\tiny\color{gray},
+  numbers=left,
+  numbersep=8pt,
+  frame=single,
+  framerule=0.4pt,
+  rulecolor=\color{gray!50},
+  backgroundcolor=\color{gray!5},
+  breaklines=true,
+  breakatwhitespace=true,
+  showstringspaces=false,
+  captionpos=b,
+  tabsize=2,
+  literate={á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1
+           {ñ}{{\~n}}1 {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1 {Ú}{{\'U}}1
+           {¿}{{?`}}1 {¡}{{!`}}1
+}
+
+\usepackage[colorlinks=true,linkcolor=blue!60!black,urlcolor=blue!60!black,citecolor=blue!60!black]{hyperref}
+
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textsc{Sentinel AcademIA}}
+\fancyhead[R]{\small Tutorial Fase 1}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\definecolor{okgreen}{RGB}{40,140,60}
+\definecolor{errred}{RGB}{200,50,50}
+\definecolor{warnorange}{RGB}{220,130,30}
+\definecolor{infoblue}{RGB}{30,90,180}
+\definecolor{codebg}{RGB}{245,245,245}
+
+\newcommand{\cmd}[1]{\texttt{\small #1}}
+\newcommand{\filename}[1]{\texttt{\small #1}}
+\newcommand{\ok}{\textcolor{okgreen}{\textbf{\checkmark}}}
+\newcommand{\err}{\textcolor{errred}{\textbf{\ding{55}}}}
+\newcommand{\warn}{\textcolor{warnorange}{\textbf{\textasciitilde}}}
+
+\title{\Huge\textbf{Fase 1: Backend Core} \\[0.3em]
+       \Large AWS SAM + Lambda + DynamoDB Multi-Tenant \\[0.5em]
+       \normalsize Tutorial paso a paso}
+\author{Proyecto Sentinel AcademIA \\ \small lFunknown}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+
+\begin{tcolorbox}[colback=blue!5!white,colframe=infoblue,title={\textbf{¿Qué construimos en este tutorial?}}]
+Este documento es el log completo de la \textbf{Fase 1} del proyecto Sentinel AcademIA: el backend serverless en AWS Academy con Lambdas Python, DynamoDB multi-tenant, y API Gateway.
+
+\textbf{Stack tecnol\'ogico:}
+\begin{itemize}
+  \item Python 3.12 (runtime de Lambda) + 3.14.3 (local)
+  \item AWS SAM (Infrastructure as Code)
+  \item Lambda + API Gateway REST + DynamoDB
+  \item Pydantic v2 para validaci\'on
+  \item aws-lambda-powertools para observabilidad
+  \item OpenAPI spec como contrato
+\end{itemize}
+
+\textbf{Lo que ver\'as:}
+\begin{itemize}
+  \item Estructura de carpetas y archivos
+  \item Cada m\'odulo compartido con su prop\'osito
+  \item El template SAM con todas las decisiones explicadas
+  \item Las trampas de AWS Academy (y c\'omo resolverlas)
+  \item 5 smoke tests que validan todo end-to-end
+\end{itemize}
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=warnorange!5!white,colframe=warnorange,title={\textbf{Aviso: AWS Academy es restrictivo}}]
+Este proyecto corre en \textbf{AWS Academy Learner Lab}, que tiene l\'imites que no aplican a AWS normal. En particular, \textbf{no podemos crear IAM roles}. Esto afecta TODO el flujo y se explica en detalle en la secci\'on correspondiente.
+\end{tcolorbox}
+
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{Prerrequisitos}
+% ============================================================
+
+\subsection{Herramientas instaladas}
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Herramienta} & \textbf{Versi\'on} & \textbf{Check} \\
+\midrule
+AWS CLI & 2.35+ & \cmd{aws --version} \\
+SAM CLI & 1.162+ & \cmd{sam --version} \\
+Python 3.12 & 3.12.13 & \cmd{python3.12 --version} \\
+Python 3.14.3 & 3.14.3 & \cmd{python3 --version} \\
+mise & 2026.6+ & \cmd{mise --version} \\
+Docker & 29+ & \cmd{docker --version} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsubsection{Instala Python 3.12 con mise (si no lo tienes)}
+
+AWS Lambda runtime es Python 3.12. Tu sistema puede tener 3.14 (v\'ia OCI installer). Necesitas 3.12 tambi\'en:
+
+\begin{lstlisting}[language=bash]
+mise use --global python@3.12
+mise exec -- python3.12 --version  # debe decir 3.12.13
+\end{lstlisting}
+
+\subsection{Credenciales de AWS Academy}
+
+Las credenciales \textbf{no} se guardan en archivos del proyecto. Viven solo en variables de entorno del shell:
+
+\begin{lstlisting}[language=bash]
+export AWS_ACCESS_KEY_ID="ASIAT..."
+export AWS_SECRET_ACCESS_KEY="..."
+export AWS_SESSION_TOKEN="IQoJb3JpZ2luX2Vj..."
+export AWS_DEFAULT_REGION="us-east-1"
+export AWS_REGION="us-east-1"
+
+aws sts get-caller-identity
+# debe mostrar: Account "227165337884" o el de tu lab
+\end{lstlisting}
+
+\textbf{Vida \'util}: 3-4 horas. Cuando expiren, repites el flujo.
+
+% ============================================================
+\section{Estructura del proyecto}
+% ============================================================
+
+\begin{lstlisting}[language=bash]
+sentinel-academia/
+|-- infra/
+|   |-- template.yaml           # SAM template (IaC)
+|   `-- samconfig.toml          # Configuracion de sam deploy
+|
+|-- src/
+|   |-- handlers/               # 1 archivo = 1 Lambda
+|   |   |-- _shared/            # Modulos compartidos entre Lambdas
+|   |   |   |-- __init__.py     # <-- IMPORTANTE: marca como package
+|   |   |   |-- config.py
+|   |   |   |-- logger.py
+|   |   |   |-- errors.py
+|   |   |   |-- http_response.py
+|   |   |   |-- correlation_id.py
+|   |   |   |-- dynamo_client.py
+|   |   |   |-- schemas.py
+|   |   |   `-- auth.py
+|   |   |-- __init__.py         # <-- IMPORTANTE: marca como package
+|   |   |-- health_check.py
+|   |   |-- create_queja.py
+|   |   |-- get_queja.py
+|   |   `-- list_quejas.py
+|   |
+|   `-- requirements.txt        # Runtime deps (las usa SAM)
+|
+|-- pyproject.toml              # Configuracion completa (dev + runtime)
+|-- .opencode/
+|   `-- rules/10-aws-academy.md # Regla especifica de Academy
+`-- api-mock/openapi.yaml       # Spec de la API
+\end{lstlisting}
+
+\subsection{Decisiones clave de la estructura}
+
+\begin{itemize}
+  \item \ok \textbf{1 archivo = 1 Lambda}: cada endpoint vive en su propio archivo. F\'acil de testear, deployar, y razonar.
+  \item \ok \textbf{\_shared/ para c\'odigo com\'un}: 8 m\'odulos que usan TODAS las Lambdas.
+  \item \ok \textbf{infra/ separado de src/}: el template vive aparte del c\'odigo, evita ciclos de importaci\'on.
+  \item \ok \textbf{\_\_init\_\_.py en cada package}: sin esto, Python no reconoce la carpeta como package.
+  \item \err \textbf{NO usamos src/handlers/ como prefijo}: los handlers son top-level para que Lambda los importe f\'acil.
+\end{itemize}
+
+% ============================================================
+\section{Configuraci\'on inicial: pyproject.toml}
+% ============================================================
+
+El archivo \filename{pyproject.toml} centraliza la configuraci\'on del proyecto Python: dependencias, herramientas de calidad, y versionado.
+
+\begin{lstlisting}[language=Python,caption={pyproject.toml (deps runtime)}]
+[project]
+name = "sentinel-academia"
+version = "0.1.0"
+requires-python = ">=3.12,<3.15"  # Lambda = 3.12, local = 3.14
+dependencies = [
+    "aws-lambda-powertools[tracer,logger,metrics]>=3.0.0",
+    "boto3>=1.40.0",
+    "boto3-stubs[dynamodb,s3,ses,sns,sqs]>=1.40.0",
+    "pydantic>=2.8.0",
+    "pydantic-settings>=2.4.0",
+    "orjson>=3.10.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "moto[dynamodb,s3,ses,sns,sqs,secretsmanager]>=5.0.0",
+    "ruff>=0.6.0",
+    "mypy>=1.11.0",
+]
+\end{lstlisting}
+
+\subsection{requirements.txt para SAM}
+
+AWS SAM \textbf{NO lee pyproject.toml} para dependencias. Necesita un \filename{requirements.txt} plano:
+
+\begin{lstlisting}[language=bash,caption={src/requirements.txt}]
+# Runtime dependencies for Sentinel AcademIA Lambdas
+aws-lambda-powertools[tracer,logger,metrics]>=3.0.0
+boto3>=1.40.0
+boto3-stubs[dynamodb]>=1.40.0
+pydantic>=2.8.0
+pydantic-settings>=2.4.0
+orjson>=3.10.0
+email-validator>=2.2.0  # <-- IMPORTANTE para EmailStr de Pydantic
+\end{lstlisting}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,title={Trampa \#1: email-validator}]
+Si usas \texttt{EmailStr} de Pydantic, necesitas \texttt{email-validator}. Si no, en runtime:
+\begin{lstlisting}
+Runtime.ImportModuleError: email-validator is not installed,
+  run `pip install 'pydantic[email]'`
+\end{lstlisting}
+\end{tcolorbox}
+
+% ============================================================
+\section{Los 8 m\'odulos compartidos (\_shared/)}
+% ============================================================
+
+\subsection{config.py --- Configuraci\'on desde env vars}
+
+\begin{lstlisting}[language=Python,caption={handlers/\_shared/config.py (resumen)}]
+from functools import lru_cache
+from pydantic_settings import BaseSettings
+
+class Settings(BaseSettings):
+    app_name: str = "sentinel-academia"
+    stage: str = "dev"
+    region: str = "us-east-1"
+    dynamodb_table: str = "sentinel-quejas-{stage}"
+    files_bucket: str = "sentinel-files-{stage}"
+    log_level: str = "INFO"
+    allowed_origins: str = "*"
+    # ... OCI vars (Fase 2)
+
+@lru_cache(maxsize=1)
+def get_settings() -> Settings:
+    return Settings()  # lee de env vars automaticamente
+\end{lstlisting}
+
+\textbf{Conceptos clave:}
+\begin{itemize}
+  \item \ok Pydantic \texttt{BaseSettings} lee env vars \textbf{autom\'aticamente}
+  \item \ok \texttt{@lru\_cache} garantiza un singleton por invocaci\'on Lambda
+  \item \ok \texttt{stage} permite tener dev/staging/prod en la misma cuenta
+  \item \err Nunca hardcodees valores; siempre desde env vars
+\end{itemize}
+
+\subsection{logger.py --- Logger estructurado con powertools}
+
+\begin{lstlisting}[language=Python,caption={handlers/\_shared/logger.py}]
+from aws_lambda_powertools import Logger
+
+_loggers: dict[str, Logger] = {}
+
+def get_logger(name: str) -> Logger:
+    if name in _loggers:
+        return _loggers[name]
+    settings = get_settings()
+    logger = Logger(
+        service=settings.app_name,
+        level=settings.log_level,
+    )
+    _loggers[name] = logger
+    return logger
+\end{lstlisting}
+
+\textbf{Reglas:}
+\begin{itemize}
+  \item \err \textbf{NUNCA uses print()} --- siempre \texttt{logger.info()}
+  \item \ok El logger incluye autom\'aticamente correlation\_id y tenant\_id
+  \item \ok Niveles: DEBUG, INFO, WARNING, ERROR
+\end{itemize}
+
+\subsection{errors.py --- Excepciones tipadas + error handler}
+
+\begin{lstlisting}[language=Python,caption={handlers/\_shared/errors.py (nucleo)}]
+class AppError(Exception):
+    def __init__(self, message, status_code=500, error_code="INTERNAL_ERROR",
+                 details=None):
+        super().__init__(message)
+        self.message = message
+        self.status_code = status_code
+        self.error_code = error_code
+        self.details = details or {}
+
+class ValidationError(AppError):  # 400
+    def __init__(self, message, details=None):
+        super().__init__(message, 400, "VALIDATION_ERROR", details)
+
+class UnauthorizedError(AppError):  # 401
+    def __init__(self, message="Unauthorized"):
+        super().__init__(message, 401, "UNAUTHORIZED")
+
+class NotFoundError(AppError):  # 404
+    ...
+
+def error_handler(func):
+    def wrapper(event, context):
+        try:
+            return func(event, context)
+        except AppError as e:
+            log.warning("AppError raised", extra={
+                "error_code": e.error_code,
+                "status_code": e.status_code,
+                "error_message": e.message,  # <-- no "message"!
+            })
+            return build_error_response(
+                status_code=e.status_code,
+                error_code=e.error_code,
+                message=e.message,
+                details=e.details,
+            )
+        except Exception as e:
+            log.exception("Unhandled exception")
+            return build_error_response(500, "INTERNAL_ERROR", ...)
+    return wrapper
+\end{lstlisting}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,title={Trampa \#2: KeyError 'message' en logger}]
+El m\'odulo \texttt{logging} de Python tiene un atributo interno \texttt{message} en LogRecord. Si pasas \texttt{extra=\{``message'': ...\}} al logger, falla con \texttt{KeyError: ``Attempt to overwrite 'message' in LogRecord''}.
+
+\textbf{Soluci\'on}: usa \texttt{error\_message} o cualquier otro nombre.
+\end{tcolorbox}
+
+\subsection{http\_response.py --- Respuestas estandar}
+
+\begin{lstlisting}[language=Python,caption={handlers/\_shared/http\_response.py (fragmento)}]
+class HttpResponse:
+    @staticmethod
+    def ok(body): return build_response(200, body)
+    @staticmethod
+    def created(body): return build_response(201, body)
+    @staticmethod
+    def accepted(body): return build_response(202, body)  # <-- async pattern
+    @staticmethod
+    def bad_request(msg, details=None):
+        return build_error_response(400, "VALIDATION_ERROR", msg, details)
+    # ... not_found, conflict, internal_error, etc.
+
+def build_error_response(status_code, error_code, message, details=None):
+    body = {
+        "code": error_code,
+        "message": message,
+        "correlationId": get_correlation_id() or "",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    if details:
+        body["details"] = details
+    return build_response(status_code, body)
+\end{lstlisting}
+
+\textbf{Decisiones:}
+\begin{itemize}
+  \item \ok \textbf{CORS siempre}: headers en TODAS las respuestas
+  \item \ok \textbf{orjson} para serializar (m\'as r\'apido que stdlib)
+  \item \ok Formato de error \textbf{alineado con OpenAPI spec}: \texttt{\{code, message, correlationId, timestamp\}}
+\end{itemize}
+
+\subsection{correlation\_id.py --- Trazabilidad end-to-end}
+
+\begin{lstlisting}[language=Python,caption={handlers/\_shared/correlation\_id.py}]
+import uuid
+from contextvars import ContextVar
+
+_correlation_id_var: ContextVar[str | None] = ContextVar(
+    "correlation_id", default=None
+)
+
+def with_correlation_id(event):
+    headers = event.get("headers", {}) or {}
+    cid = (headers.get("x-correlation-id")
+           or headers.get("X-Correlation-ID")
+           or headers.get("X-Correlation-Id"))
+    if not cid:
+        cid = str(uuid.uuid4())
+    _correlation_id_var.set(cid)
+    return cid
+
+def get_correlation_id() -> str | None:
+    return _correlation_id_var.get()
+\end{lstlisting}
+
+\textbf{Conceptos:}
+\begin{itemize}
+  \item \ok \texttt{ContextVar}: variable local al contexto de ejecuci\'on (no global)
+  \item \ok Header \texttt{X-Correlation-ID} opcional; se genera UUID si falta
+  \item \ok Aparece en logs y en respuestas (header \texttt{X-Correlation-ID})
+\end{itemize}
+
+\subsection{dynamo\_client.py --- Wrapper multi-tenant}
+
+\begin{lstlisting}[language=Python,caption={handlers/\_shared/dynamo\_client.py (key builders)}]
+def tenant_pk(tenant_id: str) -> str:
+    return f"TENANT#{tenant_id}"
+
+def queja_pk(tenant_id: str, queja_id: str) -> str:
+    return f"{tenant_pk(tenant_id)}#QUEJA#{queja_id}"
+
+def queja_sk(queja_id: str) -> str:
+    return f"QUEJA#{queja_id}"
+
+class DynamoClient:
+    def put_item(self, item, condition_expression=None):
+        # PK/SK ya vienen en el item
+        kwargs = {"Item": item}
+        if condition_expression:
+            kwargs["ConditionExpression"] = condition_expression
+        self._table.put_item(**kwargs)
+
+    def get_queja(self, tenant_id, queja_id):
+        item = self.get_item(
+            pk=queja_pk(tenant_id, queja_id),
+            sk=queja_sk(queja_id)
+        )
+        if item is None:
+            raise NotFoundError(...)
+        return item
+
+    def query_by_tenant(self, tenant_id, sk_prefix=None, limit=None):
+        kc = Key("pk").eq(tenant_pk(tenant_id))
+        if sk_prefix:
+            kc = kc & Key("sk").begins_with(sk_prefix)
+        return self._table.query(KeyConditionExpression=kc, ...)["Items"]
+\end{lstlisting}
+
+\textbf{Patrones clave:}
+\begin{itemize}
+  \item \ok \textbf{Single-table}: PK = \texttt{TENANT\#xxx\#QUEJA\#yyy}, SK = \texttt{QUEJA\#yyy}
+  \item \ok \textbf{Multi-tenant safety}: las queries SIEMPRE filtran por tenant
+  \item \ok \textbf{GSI para queries globales}: gsi1pk = \texttt{TENANT\#xxx\#STATUS\#PENDIENTE}
+\end{itemize}
+
+\subsection{schemas.py --- Validaci\'on con Pydantic}
+
+\begin{lstlisting}[language=Python,caption={handlers/\_shared/schemas.py (modelos principales)}]
+from enum import StrEnum
+
+class QuejaStatus(StrEnum):
+    PENDIENTE = "PENDIENTE"
+    EN_COLA = "EN_COLA"
+    PROCESANDO = "PROCESANDO"
+    ANALIZADA = "ANALIZADA"
+    NOTIFICADA = "NOTIFICADA"
+    ERROR = "ERROR"
+
+class CategoriaEnum(StrEnum):
+    ACADEMICA = "ACADEMICA"
+    INFRAESTRUCTURA = "INFRAESTRUCTURA"
+    ACOSO = "ACOSO"
+    ADMINISTRATIVA = "ADMINISTRATIVA"
+    SALUD = "SALUD"
+    OTRA = "OTRA"
+
+class QuejaCreate(QuejaBase):
+    titulo: str = Field(min_length=5, max_length=120)
+    descripcion: str = Field(min_length=20, max_length=5000)
+    categoriaDeclarada: CategoriaEnum = CategoriaEnum.OTRA
+    anonima: bool = False
+    sede: str | None = None
+    facultad: str | None = None
+    contactoEmail: EmailStr | None = None
+    contactoTelefono: str | None = Field(default=None, pattern=r"^\+?[0-9\s\-]{7,20}$")
+
+class QuejaAccepted(BaseModel):
+    quejaId: str
+    status: QuejaStatus = QuejaStatus.PENDIENTE
+    correlationId: str
+    createdAt: str
+    estimatedAnalysisTime: int = 30
+\end{lstlisting}
+
+\textbf{Decisiones:}
+\begin{itemize}
+  \item \ok \textbf{Nombres de campos en camelCase} (alineados con OpenAPI)
+  \item \ok \textbf{Enums UPPERCASE} (alineados con spec)
+  \item \ok \textbf{Validaciones inline}: min\_length, max\_length, pattern, etc.
+  \item \ok \texttt{QuejaAccepted} separado de \texttt{QuejaResponse} (uno para 202, otro para 200)
+\end{itemize}
+
+\subsection{auth.py --- Multi-tenant}
+
+\begin{lstlisting}[language=Python,caption={handlers/\_shared/auth.py}]
+def extract_tenant_id(event):
+    headers = event.get("headers", {}) or {}
+    tenant_id = (headers.get("X-Tenant-ID")
+                 or headers.get("x-tenant-id")
+                 or headers.get("X-Tenant-Id"))
+    if not tenant_id:
+        raise UnauthorizedError(
+            "Missing X-Tenant-ID header. Multi-tenant access requires..."
+        )
+    tenant_id = tenant_id.strip()
+    if not tenant_id or not all(c.isalnum() or c in "-_" for c in tenant_id):
+        raise UnauthorizedError("Invalid X-Tenant-ID format")
+    return tenant_id
+\end{lstlisting}
+
+\textbf{Conceptos:}
+\begin{itemize}
+  \item \ok Tenant ID viene de header \textbf{nunca} del body (seguridad)
+  \item \ok Sanitizaci\'on: solo alfanum\'erico, gui\'on bajo, gui\'on
+  \item \err Sin header $\rightarrow$ 401 UNAUTHORIZED
+\end{itemize}
+
+% ============================================================
+\section{Las 4 Lambdas}
+% ============================================================
+
+\subsection{health\_check.py --- Endpoint sin auth}
+
+\begin{lstlisting}[language=Python,caption={handlers/health\_check.py}]
+from handlers._shared.errors import error_handler
+from handlers._shared.http_response import HttpResponse
+from handlers._shared.config import get_settings
+from handlers._shared.correlation_id import with_correlation_id
+
+@error_handler
+def lambda_handler(event, context):
+    with_correlation_id(event)
+    settings = get_settings()
+    return HttpResponse.ok({
+        "status": "healthy",
+        "service": settings.app_name,
+        "stage": settings.stage,
+        "region": settings.region,
+    })
+\end{lstlisting}
+
+\subsection{create\_queja.py --- POST 202 Accepted (async pattern)}
+
+\begin{lstlisting}[language=Python,caption={handlers/create\_queja.py (nucleo)}]
+@error_handler
+def lambda_handler(event, context):
+    with_correlation_id(event)
+    try:
+        # 1. Auth: extraer tenant (multi-tenant safety)
+        tenant_id = extract_tenant_id(event)
+        user_id = extract_user_id(event)
+        log.append_keys(tenant_id=tenant_id)
+        if user_id:
+            log.append_keys(user_id=user_id)
+
+        # 2. Parse + validate body
+        body = _parse_body(event)
+        try:
+            input_data = QuejaCreate.model_validate(body)
+        except PydanticValidationError as e:
+            errors = [{"field": "...", "message": "...", "type": "..."}
+                      for err in e.errors()]
+            raise ValidationError(
+                "Request body validation failed",
+                details={"errors": errors}
+            ) from e
+
+        # 3. Build accepted response
+        now = now_iso()
+        correlation_id = get_correlation_id() or ""
+        accepted = QuejaAccepted(
+            status="PENDIENTE",
+            correlationId=correlation_id,
+            createdAt=now,
+            estimatedAnalysisTime=30,
+        )
+
+        # 4. Build DynamoDB item
+        item = input_data.model_dump(mode="json")
+        item["quejaId"] = accepted.quejaId
+        item["tenantId"] = tenant_id
+        item["userId"] = user_id if not input_data.anonima else None
+        item["status"] = "PENDIENTE"
+        item["createdAt"] = now
+        item["updatedAt"] = now
+        item["escalada"] = False
+        item["pk"] = queja_pk(tenant_id, accepted.quejaId)
+        item["sk"] = queja_sk(accepted.quejaId)
+        item["gsi1pk"] = f"TENANT#{tenant_id}#STATUS#PENDIENTE"
+        item["gsi1sk"] = now
+
+        # 5. Persist (con condition: evita duplicados)
+        dynamo = get_dynamo_client()
+        dynamo.put_item(item, condition_expression="attribute_not_exists(pk)")
+
+        # 6. Return 202 Accepted
+        return HttpResponse.accepted(accepted.model_dump(mode="json"))
+    finally:
+        clear_correlation_id()
+\end{lstlisting}
+
+\textbf{Patrones importantes:}
+\begin{itemize}
+  \item \ok \textbf{202 Accepted} (no 201): procesamiento as\'incrono
+  \item \ok \texttt{log.append\_keys(tenant\_id=...)}: a\~nade contexto a todos los logs
+  \item \ok \texttt{condition\_expression="attribute\_not\_exists(pk)"}: previene duplicados
+  \item \ok \texttt{try/finally} con \texttt{clear\_correlation\_id()}: limpia contexto
+\end{itemize}
+
+\subsection{get\_queja.py y list\_quejas.py}
+
+Patrones similares:
+\begin{itemize}
+  \item Validan \texttt{pathParameters} (quejaId)
+  \item Llaman a \texttt{dynamo.get\_queja()} o \texttt{query\_by\_tenant()}
+  \item Retornan 200 con la queja o lista
+  \item Manejan 404 con \texttt{NotFoundError}
+\end{itemize}
+
+% ============================================================
+\section{SAM template --- Infraestructura como c\'odigo}
+% ============================================================
+
+\subsection{El template completo (infra/template.yaml)}
+
+\begin{lstlisting}[language=yaml,caption={infra/template.yaml --- fragmentos clave}]
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+  Stage:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+  LambdaRoleArn:
+    Type: String
+    Default: "arn:aws:iam::227165337884:role/LabRole"
+
+Globals:
+  Function:
+    Runtime: python3.12
+    MemorySize: 256
+    Timeout: 30
+    Architectures: [x86_64]
+    Tracing: Active
+    Environment:
+      Variables:
+        STAGE: !Ref Stage
+        LOG_LEVEL: INFO
+        ALLOWED_ORIGINS: "*"
+        POWERTOOLS_SERVICE_NAME: sentinel-academia
+  Api:
+    Cors:
+      AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+      AllowHeaders: "'Content-Type,Authorization,X-Correlation-ID,X-Tenant-ID'"
+      AllowOrigin: "'*'"
+
+Resources:
+  QuejasTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "sentinel-quejas-${Stage}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: pk,  AttributeType: S }
+        - { AttributeName: sk,  AttributeType: S }
+        - { AttributeName: gsi1pk, AttributeType: S }
+        - { AttributeName: gsi1sk, AttributeType: S }
+      KeySchema:
+        - { AttributeName: pk, KeyType: HASH }
+        - { AttributeName: sk, KeyType: RANGE }
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1-StatusByDate
+          KeySchema:
+            - { AttributeName: gsi1pk, KeyType: HASH }
+            - { AttributeName: gsi1sk, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+
+  CreateQuejaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Role: !Ref LambdaRoleArn           # <-- LabRole pre-existente
+      FunctionName: !Sub "sentinel-create-queja-${Stage}"
+      CodeUri: ../src                    # <-- desde la raiz del proyecto
+      Handler: handlers.create_queja.lambda_handler
+      MemorySize: 512
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Sub "sentinel-quejas-${Stage}"
+      Events:
+        CreateApi:
+          Type: Api
+          Properties:
+            Path: /api/quejas           # <-- alineado con OpenAPI
+            Method: POST
+            RestApiId: !Ref SentinelApi
+\end{lstlisting}
+
+% ============================================================
+\section{AWS Academy: las trampas y c\'omo resolverlas}
+% ============================================================
+
+\subsection{Regla de oro: SIEMPRE LabRole}
+
+\begin{tcolorbox}[colback=warnorange!5!white,colframe=warnorange,title={\textbf{\ding{55} NO crees roles, \ding{51} usa LabRole}}]
+En AWS Academy Learner Lab, el usuario \texttt{voclabs} \textbf{NO puede}:
+\begin{itemize}
+  \item \texttt{iam:CreateRole} --- denegado
+  \item \texttt{iam:PassRole} --- solo sobre \texttt{LabRole}
+  \item Tags en IAM resources --- denegado
+\end{itemize}
+
+\textbf{Consecuencia}: SAM normalmente auto-genera roles. Eso falla. Soluci\'on: declarar el role manualmente.
+\end{tcolorbox}
+
+\begin{lstlisting}[language=yaml,caption={C\'omo referenciar LabRole}]
+LambdaRoleArn:
+  Type: String
+  Default: "arn:aws:iam::227165337884:role/LabRole"
+
+CreateQuejaFunction:
+  Properties:
+    Role: !Ref LambdaRoleArn   # <-- en CADA Lambda
+\end{lstlisting}
+
+\subsection{No usar \texttt{Policies:} en las funciones}
+
+Si pones:
+
+\begin{lstlisting}[language=yaml]
+Properties:
+  Policies:
+    - AWSLambdaBasicExecutionRole
+\end{lstlisting}
+
+SAM intenta crear un role nuevo $\rightarrow$ 403 AccessDenied.
+
+\textbf{Soluci\'on}: no declarar Policies; el LabRole ya tiene los permisos necesarios.
+
+\subsection{CodeUri: \texttt{../src} (no \texttt{../} ni \texttt{../../})}
+
+El CodeUri determina qu\'e se incluye en el zip de la Lambda:
+
+\begin{lstlisting}[language=yaml,caption={Comparaci\'on de CodeUri}]
+# MAL: incluye TODO el proyecto (docs, web, AGENTS.md, .gitignore...)
+CodeUri: ../
+
+# MAL: incluye src/ + el template otra vez
+CodeUri: ../src/../
+
+# BIEN: solo src/, zip limpio
+CodeUri: ../src
+\end{lstlisting}
+
+\textbf{Verificaci\'on}: tras \texttt{sam build}, el zip debe tener:
+\begin{itemize}
+  \item \filename{handlers/\_\_init\_\_.py} (marcando el package)
+  \item \filename{handlers/\_shared/\_\_init\_\_.py}
+  \item \filename{handlers/create\_queja.py}
+  \item Site-packages (boto3, pydantic, etc.)
+\end{itemize}
+
+\subsection{El bug \texttt{No module named 'src'}}
+
+Cuando el handler era \texttt{src.handlers.create\_queja.lambda\_handler}, Lambda dec\'ia:
+
+\begin{lstlisting}
+Runtime.ImportModuleError: No module named 'src'
+\end{lstlisting}
+
+\textbf{Causa}: aunque el zip ten\'ia \texttt{src/}, el handler busc\'o \texttt{src.handlers.*} y no encontr\'o \texttt{src} en el path de importaci\'on.
+
+\textbf{Soluci\'on}: renombrar handlers para que sean \textbf{top-level}:
+
+\begin{lstlisting}[language=bash]
+# Cambiar todas las referencias en el codigo
+sed -i 's|from src\.handlers|from handlers|g' src/handlers/**/*.py
+sed -i 's|src\.handlers\.|handlers.|g' template.yaml
+\end{lstlisting}
+
+% ============================================================
+\section{Build, deploy, y samconfig.toml}
+% ============================================================
+
+\subsection{samconfig.toml --- Configuraci\'on persistente}
+
+\begin{lstlisting}[language=yaml,caption={infra/samconfig.toml}]
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "sentinel-academia-dev"
+s3_bucket = "sentinel-sam-artifacts-1781951709"
+s3_prefix = "sentinel-academia-dev"
+region = "us-east-1"
+confirm_changes_before_deploy = false
+capabilities = "CAPABILITY_IAM"
+disable_rollback = false
+
+[default.deploy.global.parameters]
+debug = false
+\end{lstlisting}
+
+\subsection{El ciclo build $\rightarrow$ deploy}
+
+\begin{lstlisting}[language=bash,caption={Comandos esenciales}]
+# 1. Limpiar build anterior
+rm -rf .aws-sam .aws-sam-new
+
+# 2. Build (crea .aws-sam/build/<Function>/ con deps instaladas)
+sam build --build-dir .aws-sam-new
+
+# 3. Deploy (sube zips a S3 + crea/actualiza stack)
+sam deploy --stack-name sentinel-academia-dev \
+  --template-file .aws-sam-new/template.yaml \
+  --s3-bucket sentinel-sam-artifacts-1781951709 \
+  --capabilities CAPABILITY_IAM \
+  --no-disable-rollback \
+  --no-confirm-changeset
+
+# 4. Ver outputs
+aws cloudformation describe-stacks \
+  --stack-name sentinel-academia-dev \
+  --query 'Stacks[0].Outputs'
+\end{lstlisting}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,title={Trampa \#3: \_\_pycache\_\_ con permisos de root}]
+Tras \texttt{sam build} con Docker, se crean archivos \texttt{\_\_pycache\_\_/*.pyc} con owner \texttt{root}. No puedes borrarlos con tu usuario.
+
+\textbf{Soluci\'on}: usa \texttt{-{}-build-dir} apuntando a un directorio nuevo:
+\begin{lstlisting}
+sam build --build-dir .aws-sam-new
+\end{lstlisting}
+\end{tcolorbox}
+
+% ============================================================
+\section{Los 5 smoke tests que validan todo}
+% ============================================================
+
+\begin{lstlisting}[language=bash,caption={tests/smoke.sh}]
+API="https://om3eiczjr9.execute-api.us-east-1.amazonaws.com/dev"
+
+# Test 1: Health check
+curl -s "$API/health"
+# Esperado: 200 + {"status":"healthy",...}
+
+# Test 2: Crear queja (alineado con OpenAPI)
+curl -s -X POST "$API/api/quejas" \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: utpl" \
+  -H "X-User-ID: estudiante-001" \
+  -H "X-Correlation-ID: test-001" \
+  -d '{"titulo":"Problema","descripcion":"...","categoriaDeclarada":"ADMINISTRATIVA","anonima":false}'
+# Esperado: 202 + QuejaAccepted
+
+# Test 3: Listar quejas
+curl -s "$API/api/quejas" -H "X-Tenant-ID: utpl"
+# Esperado: 200 + {items, total, nextCursor}
+
+# Test 4: Obtener queja por ID
+curl -s "$API/api/quejas/<id>" -H "X-Tenant-ID: utpl"
+# Esperado: 200 + queja completa
+
+# Test 5: Sin X-Tenant-ID (debe fallar con 401)
+curl -s -X POST "$API/api/quejas" -H "Content-Type: application/json" -d '...'
+# Esperado: 401 + {code:UNAUTHORIZED,message:...,correlationId:...,timestamp:...}
+\end{lstlisting}
+
+\subsection{Output esperado de cada test}
+
+\begin{lstlisting}[language=json,caption={Test 1: GET /health}]
+{
+  "status": "healthy",
+  "service": "sentinel-academia",
+  "stage": "dev",
+  "region": "us-east-1"
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=json,caption={Test 2: POST /api/quejas}]
+{
+  "quejaId": "1f6733ea-0578-48cf-af10-740962f7ced0",
+  "status": "PENDIENTE",
+  "correlationId": "test-001",
+  "createdAt": "2026-06-20T13:34:24.779106+00:00",
+  "estimatedAnalysisTime": 30
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=json,caption={Test 5: error 401 (formato spec-aligned)}]
+{
+  "code": "UNAUTHORIZED",
+  "message": "Missing X-Tenant-ID header. Multi-tenant access requires a tenant identifier.",
+  "correlationId": "",
+  "timestamp": "2026-06-20T13:40:38.705363+00:00"
+}
+\end{lstlisting}
+
+% ============================================================
+\section{Cat\'alogo de errores y soluciones}
+% ============================================================
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 1: iam:CreateRole denied}]
+\textbf{Cuando}: \texttt{sam deploy} intenta crear el role de la Lambda. \\
+\textbf{Causa}: AWS Academy no permite crear roles. \\
+\textbf{Soluci\'on}: usar \texttt{LabRole} pre-existente (\texttt{Role: !Ref LambdaRoleArn}).
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 2: iam:PassRole denied}]
+\textbf{Cuando}: \texttt{sam deploy} con otro role que no sea \texttt{LabRole}. \\
+\textbf{Causa}: el usuario voclabs solo puede pasar LabRole. \\
+\textbf{Soluci\'on}: cambiar el ARN a \texttt{LabRole}.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 3: Tags denied en IAM resources}]
+\textbf{Cuando}: el template tiene \texttt{Tags:} en una funci\'on. \\
+\textbf{Causa}: Academy bloquea tagging en IAM. \\
+\textbf{Soluci\'on}: quitar \texttt{Tags} del template.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 4: No module named 'src'}]
+\textbf{Cuando}: handler con prefijo \texttt{src.handlers.*}. \\
+\textbf{Causa}: el paquete \texttt{src} no est\'a en el path de importaci\'on. \\
+\textbf{Soluci\'on}: handlers como top-level (\texttt{handlers.create\_queja.lambda\_handler}).
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 5: email-validator not installed}]
+\textbf{Cuando}: el body usa \texttt{EmailStr} de Pydantic. \\
+\textbf{Causa}: Pydantic no incluye email-validator por defecto. \\
+\textbf{Soluci\'on}: \texttt{pip install email-validator} y agregar a requirements.txt.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 6: KeyError 'message' in LogRecord}]
+\textbf{Cuando}: \texttt{logger.warning(extra=\{'message': ...\})}. \\
+\textbf{Causa}: \texttt{message} es atributo interno de logging. \\
+\textbf{Soluci\'on}: usar \texttt{error\_message} u otro nombre.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 7: Stack en ROLLBACK\_COMPLETE}]
+\textbf{Cuando}: primer deploy falla y no se puede re-deployar. \\
+\textbf{Causa}: CloudFormation no permite update sobre ROLLBACK\_COMPLETE. \\
+\textbf{Soluci\'on}:
+\begin{lstlisting}
+aws cloudformation delete-stack --stack-name sentinel-academia-dev
+aws cloudformation wait stack-delete-complete --stack-name sentinel-academia-dev
+sam deploy ...
+\end{lstlisting}
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 8: \_\_pycache\_\_ permission denied en rebuild}]
+\textbf{Cuando}: \texttt{sam build} despu\'es de un build con Docker. \\
+\textbf{Causa}: archivos creados por root en container Docker. \\
+\textbf{Soluci\'on}: \texttt{sam build -{}-build-dir .aws-sam-new}
+\end{tcolorbox}
+
+% ============================================================
+\section{Lo que aprendimos (resumen ejecutivo)}
+% ============================================================
+
+\begin{tcolorbox}[colback=okgreen!5!white,colframe=okgreen,title={\textbf{Checklist Fase 1}}]
+\begin{enumerate}
+  \item \textbf{1 Lambda = 1 archivo = 1 endpoint}
+  \item \textbf{\_shared/} para c\'odigo com\'un (logger, errors, http, schemas)
+  \item \textbf{LabRole} para todas las Lambdas (nunca crear roles)
+  \item \textbf{CodeUri: ../src} apuntando a src/, no al project root
+  \item \textbf{Handlers como top-level} (sin prefijo \texttt{src.})
+  \item \textbf{202 Accepted} para operaciones as\'incronas
+  \item \textbf{Error format spec-aligned}: \texttt{\{code, message, correlationId, timestamp\}}
+  \item \textbf{Multi-tenant via X-Tenant-ID header} (nunca del body)
+  \item \textbf{DynamoDB single-table} con PK \texttt{TENANT\#xxx\#QUEJA\#yyy}
+  \item \textbf{email-validator} obligatorio para \texttt{EmailStr}
+  \item \textbf{No usar 'message' en logger extra} (usar 'error\_message')
+  \item \textbf{sam build -{}-build-dir .aws-sam-new} para evitar problemas de permisos
+\end{enumerate}
+\end{tcolorbox}
+
+% ============================================================
+\section{Ejercicios para practicar}
+% ============================================================
+
+\subsection{Ejercicio 1: A\~nadir un endpoint \texttt{GET /api/quejas/\{id\}/status}}
+
+Endpoint que devuelve solo el status actual de una queja (no toda la data).
+
+\textbf{Pista}: crea \filename{src/handlers/get\_queja\_status.py}, reutiliza \texttt{dynamo.get\_queja()}, y mapea el schema.
+
+\subsection{Ejercicio 2: A\~nadir filtro por status en \texttt{list\_quejas}}
+
+Modifica el handler para que acepte \texttt{?status=PENDIENTE} y use el GSI1.
+
+\textbf{Pista}: cambia \texttt{query\_by\_tenant()} para que use el GSI cuando hay filtro de status.
+
+\subsection{Ejercicio 3: A\~nadir paginaci\'on con cursor real}
+
+Hoy \texttt{nextCursor: null}. Implementa cursor opaco basado en \texttt{LastEvaluatedKey} de DynamoDB.
+
+\subsection{Ejercicio 4: Crear script de smoke tests}
+
+Automatiza los 5 tests en \filename{tests/smoke.sh} con aserciones (jq) y exit codes.
+
+\subsection{Ejercicio 5: Deploy con \texttt{sam sync}}
+
+En vez de \texttt{sam deploy}, usa \texttt{sam sync -{}-stack-name ... -{}-watch} para iterar m\'as r\'apido.
+
+% ============================================================
+\section{Siguiente paso: Fase 2}
+% ============================================================
+
+En la \textbf{Fase 2} agregamos el LLM:
+
+\begin{itemize}
+  \item Nuevo servicio \texttt{src/services/llm\_client.py} que envuelve OCI Cohere
+  \item Lambda \texttt{analyze\_queja.py} consumer de SQS
+  \item SQS queue para procesamiento as\'incrono
+  \item Funci\'on que toma una queja, llama Cohere, actualiza status a ANALIZADA
+  \item El \texttt{createQueja} env\'ia mensaje a SQS en vez de procesar directo
+\end{itemize}
+
+\textbf{Tiempo estimado}: 3-4 horas.
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+Fase & Estado \\
+\midrule
+0. Setup + OCI & \checkmark \\
+1. Backend Core (este tutorial) & \checkmark \\
+2. LLM integration & pr\'oximo \\
+3. Frontend deploy & pendiente \\
+4. Archivos + Email & pendiente \\
+5. RAG & opcional \\
+6. Testing & pendiente \\
+7. Deploy final + demo & pendiente \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{2em}
+\begin{center}
+\textit{Fin del tutorial. ¡A por la Fase 2!}
+\end{center}
+
+\end{document}

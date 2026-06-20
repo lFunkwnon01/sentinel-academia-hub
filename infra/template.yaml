@@ -1,0 +1,445 @@
+# ============================================================
+# SAM Template - Sentinel AcademIA (Fase 4: + Files)
+# AWS Academy: LabRole
+# ============================================================
+
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+
+Description: >
+  Sentinel AcademIA - Fase 4
+  Backend con Lambdas, SQS, DynamoDB, S3 file uploads, OCI LLM.
+
+Parameters:
+  Stage:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+  LogLevel:
+    Type: String
+    Default: INFO
+    AllowedValues: [DEBUG, INFO, WARNING, ERROR]
+  AllowedOrigins:
+    Type: String
+    Default: "*"
+  LambdaRoleArn:
+    Type: String
+    Default: "arn:aws:iam::227165337884:role/LabRole"
+
+Globals:
+  Function:
+    Runtime: python3.12
+    MemorySize: 256
+    Timeout: 30
+    Architectures: [x86_64]
+    Tracing: Active
+    Environment:
+      Variables:
+        STAGE: !Ref Stage
+        LOG_LEVEL: !Ref LogLevel
+        ALLOWED_ORIGINS: !Ref AllowedOrigins
+        POWERTOOLS_SERVICE_NAME: sentinel-academia
+  Api:
+    Cors:
+      AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+      AllowHeaders: "'Content-Type,Authorization,X-Correlation-ID,X-Tenant-ID,X-User-ID'"
+      AllowOrigin: "'*'"
+    TracingEnabled: true
+
+Resources:
+  # --- DynamoDB Table ---
+  QuejasTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "sentinel-quejas-${Stage}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+        - AttributeName: gsi1pk
+          AttributeType: S
+        - AttributeName: gsi1sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1-StatusByDate
+          KeySchema:
+            - AttributeName: gsi1pk
+              KeyType: HASH
+            - AttributeName: gsi1sk
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  # --- SQS Queue ---
+  AnalysisDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "sentinel-analysis-dlq-${Stage}"
+      MessageRetentionPeriod: 1209600
+
+  AnalysisQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "sentinel-analysis-${Stage}"
+      VisibilityTimeout: 180
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt AnalysisDeadLetterQueue.Arn
+        maxReceiveCount: 3
+
+  # --- SNS Topic: critical queja alerts (per-tenant routing) ---
+  AlertasTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "sentinel-alertas-${Stage}"
+      DisplayName: "Sentinel AcademIA - Alertas de quejas criticas"
+      KmsMasterKeyId: alias/aws/sns
+
+  # --- DynamoDB: knowledge chunks (per-tenant RAG) ---
+  KnowledgeChunksTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "sentinel-knowledge-chunks-${Stage}"
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  # --- S3 Bucket for original knowledge PDFs ---
+  KnowledgeBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "sentinel-knowledge-${Stage}-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # --- S3 Bucket for evidence files ---
+  FilesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "sentinel-files-${Stage}-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins: ["*"]
+            AllowedMethods: [GET, PUT, POST]
+            AllowedHeaders: ["*"]
+            MaxAge: 3000
+
+  # --- Lambda: Health ---
+  HealthCheckFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Role: !Ref LambdaRoleArn
+      FunctionName: !Sub "sentinel-health-${Stage}"
+      CodeUri: ../src
+      Handler: handlers.health_check.lambda_handler
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Sub "sentinel-quejas-${Stage}"
+      Events:
+        HealthApi:
+          Type: Api
+          Properties:
+            Path: /health
+            Method: GET
+            RestApiId: !Ref SentinelApi
+
+  # --- Lambda: Create Queja ---
+  CreateQuejaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Role: !Ref LambdaRoleArn
+      FunctionName: !Sub "sentinel-create-queja-${Stage}"
+      CodeUri: ../src
+      Handler: handlers.create_queja.lambda_handler
+      MemorySize: 512
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Sub "sentinel-quejas-${Stage}"
+          ANALYSIS_QUEUE_URL: !Ref AnalysisQueue
+      Events:
+        CreateApi:
+          Type: Api
+          Properties:
+            Path: /api/quejas
+            Method: POST
+            RestApiId: !Ref SentinelApi
+      Policies:
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt AnalysisQueue.QueueName
+
+  # --- Lambda: Get Queja ---
+  GetQuejaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Role: !Ref LambdaRoleArn
+      FunctionName: !Sub "sentinel-get-queja-${Stage}"
+      CodeUri: ../src
+      Handler: handlers.get_queja.lambda_handler
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Sub "sentinel-quejas-${Stage}"
+      Events:
+        GetApi:
+          Type: Api
+          Properties:
+            Path: /api/quejas/{quejaId}
+            Method: GET
+            RestApiId: !Ref SentinelApi
+
+  # --- Lambda: List Quejas ---
+  ListQuejasFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Role: !Ref LambdaRoleArn
+      FunctionName: !Sub "sentinel-list-quejas-${Stage}"
+      CodeUri: ../src
+      Handler: handlers.list_quejas.lambda_handler
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Sub "sentinel-quejas-${Stage}"
+      Events:
+        ListApi:
+          Type: Api
+          Properties:
+            Path: /api/quejas
+            Method: GET
+            RestApiId: !Ref SentinelApi
+
+  # --- Lambda: Analyze Queja (SQS consumer) ---
+  AnalyzeQuejaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Role: !Ref LambdaRoleArn
+      FunctionName: !Sub "sentinel-analyze-queja-${Stage}"
+      CodeUri: ../src
+      Handler: handlers.analyze_queja.lambda_handler
+      MemorySize: 1024
+      Timeout: 120
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Sub "sentinel-quejas-${Stage}"
+          FILES_BUCKET: !Ref FilesBucket
+          MOCK_LLM: "false"
+          STAGE: !Ref Stage
+          OCI_COMPARTMENT_ID: "REPLACE_ME_OCI_COMPARTMENT_ID"
+          OCI_USER_OCID: "REPLACE_ME_OCI_USER_OCID"
+          OCI_TENANCY_OCID: "REPLACE_ME_OCI_TENANCY_OCID"
+          OCI_FINGERPRINT: "REPLACE_ME_OCI_FINGERPRINT"
+          OCI_COHERE_MODEL_OCID: "REPLACE_ME_OCI_COHERE_MODEL_OCID"
+          OCI_REGION: "us-chicago-1"
+          OCI_KEY_FILE: "/var/task/oci_key.pem"
+          ALERTAS_TOPIC_ARN: !Ref AlertasTopic
+      Events:
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt AnalysisQueue.Arn
+            BatchSize: 5
+      Policies:
+        - SQSPollerPolicy:
+            QueueName: !GetAtt AnalysisQueue.QueueName
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt AlertasTopic.TopicName
+        - DynamoDBReadPolicy:
+            TableName: !Ref KnowledgeChunksTable
+        - S3ReadPolicy:
+            BucketName: !Ref KnowledgeBucket
+
+  # --- Lambda: Notify By Email (SNS consumer) ---
+  NotifyByEmailFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Role: !Ref LambdaRoleArn
+      FunctionName: !Sub "sentinel-notify-email-${Stage}"
+      CodeUri: ../src
+      Handler: handlers.notify_by_email.lambda_handler
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          FILES_BUCKET: !Ref FilesBucket
+          STAGE: !Ref Stage
+      Events:
+        SNSEvent:
+          Type: SNS
+          Properties:
+            Topic: !Ref AlertasTopic
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref FilesBucket
+        - S3WritePolicy:
+            BucketName: !Sub "sentinel-emails-${Stage}-${AWS::AccountId}"
+
+  # --- Lambda: Upload URL (presigned) ---
+  UploadURLFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Role: !Ref LambdaRoleArn
+      FunctionName: !Sub "sentinel-upload-url-${Stage}"
+      CodeUri: ../src
+      Handler: handlers.upload_url.lambda_handler
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Sub "sentinel-quejas-${Stage}"
+          FILES_BUCKET: !Ref FilesBucket
+      Events:
+        UploadApi:
+          Type: Api
+          Properties:
+            Path: /api/quejas/{quejaId}/upload-url
+            Method: POST
+            RestApiId: !Ref SentinelApi
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref FilesBucket
+        - Statement:
+            - Effect: Allow
+              Action: s3:PutObject
+              Resource: !Sub "arn:aws:s3:::${FilesBucket}/*"
+
+  # --- Lambda: File Processor (S3 event consumer) ---
+  # NOTE: SAM S3 event creates circular dep, so we set it manually post-deploy
+  FileProcessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Role: !Ref LambdaRoleArn
+      FunctionName: !Sub "sentinel-file-processor-${Stage}"
+      CodeUri: ../src
+      Handler: handlers.file_processor.lambda_handler
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Sub "sentinel-quejas-${Stage}"
+          FILES_BUCKET: !Ref FilesBucket
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref FilesBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref QuejasTable
+
+  FileProcessorS3Permission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt FileProcessorFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+      SourceArn: !Sub "arn:aws:s3:::${FilesBucket}"
+
+  # --- Lambda: Chat (RAG) ---
+  ChatFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Role: !Ref LambdaRoleArn
+      FunctionName: !Sub "sentinel-chat-${Stage}"
+      CodeUri: ../src
+      Handler: handlers.chat.lambda_handler
+      MemorySize: 512
+      Timeout: 30
+      Environment:
+        Variables:
+          MOCK_LLM: "false"
+          STAGE: !Ref Stage
+          OCI_COMPARTMENT_ID: "REPLACE_ME_OCI_COMPARTMENT_ID"
+          OCI_USER_OCID: "REPLACE_ME_OCI_USER_OCID"
+          OCI_TENANCY_OCID: "REPLACE_ME_OCI_TENANCY_OCID"
+          OCI_FINGERPRINT: "REPLACE_ME_OCI_FINGERPRINT"
+          OCI_COHERE_MODEL_OCID: "REPLACE_ME_OCI_COHERE_MODEL_OCID"
+          OCI_REGION: "us-chicago-1"
+          OCI_KEY_FILE: "/var/task/oci_key.pem"
+      Events:
+        ChatApi:
+          Type: Api
+          Properties:
+            Path: /api/chat
+            Method: POST
+            RestApiId: !Ref SentinelApi
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref KnowledgeChunksTable
+
+  # --- Lambda: Dashboard Metrics ---
+  DashboardMetricsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Role: !Ref LambdaRoleArn
+      FunctionName: !Sub "sentinel-dashboard-${Stage}"
+      CodeUri: ../src
+      Handler: handlers.dashboard_metrics.lambda_handler
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Sub "sentinel-quejas-${Stage}"
+      Events:
+        DashboardApi:
+          Type: Api
+          Properties:
+            Path: /api/dashboard/metrics
+            Method: GET
+            RestApiId: !Ref SentinelApi
+
+  SentinelApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub "sentinel-api-${Stage}"
+      StageName: !Ref Stage
+      Description: Sentinel AcademIA REST API
+      EndpointConfiguration:
+        Type: REGIONAL
+
+Outputs:
+  ApiUrl:
+    Description: URL base del API
+    Value: !Sub "https://${SentinelApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}"
+    Export:
+      Name: !Sub "sentinel-api-url-${Stage}"
+
+  QuejasTableName:
+    Description: Tabla DynamoDB
+    Value: !Ref QuejasTable
+
+  AnalysisQueueUrl:
+    Description: URL de la cola SQS
+    Value: !Ref AnalysisQueue
+
+  FilesBucketName:
+    Description: S3 bucket para archivos
+    Value: !Ref FilesBucket
+
+  AlertasTopicArn:
+    Description: ARN del SNS topic de alertas
+    Value: !Ref AlertasTopic
+    Export:
+      Name: !Sub "sentinel-alertas-arn-${Stage}"
+
+  KnowledgeChunksTableName:
+    Description: Tabla DynamoDB de knowledge chunks
+    Value: !Ref KnowledgeChunksTable
+
+  FrontendUrl:
+    Description: URL del frontend
+    Value: "http://sentinel-frontend-dev-227165337884.s3-website-us-east-1.amazonaws.com"

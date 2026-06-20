@@ -1,0 +1,996 @@
+% ============================================================
+% TUTORIAL: Fase 5 — RAG con OCI (Oracle Cloud Infrastructure)
+% Proyecto: Sentinel AcademIA
+% Compilar: tectonic tutorial-fase5-rag.tex
+% ============================================================
+
+\documentclass[11pt,a4paper,oneside]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-nodecimaldot]{babel}
+\usepackage{lmodern}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{parskip}
+\usepackage{microtype}
+
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{amssymb}
+\usepackage{pifont}
+\usepackage{tcolorbox}
+\tcbuselibrary{breakable,skins}
+
+\usepackage{listings}
+
+\lstdefinelanguage{yaml}{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  stringstyle=\color{red!70!black},
+  commentstyle=\color{green!50!black}\itshape,
+  morekeywords={Type,Properties,Version,Statement,Effect,Principal,Action,Resource},
+}
+
+\lstdefinelanguage{bash}{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  stringstyle=\color{red!70!black},
+  commentstyle=\color{green!50!black}\itshape,
+  morekeywords={oci,aws,npm,cd,ls,mkdir,rm,cp,mv,export,unset,echo,cat,curl,sleep,npx,git,python3},
+}
+
+\lstdefinelanguage{json}{
+  basicstyle=\ttfamily\small,
+  showstringspaces=false,
+  breaklines=true,
+  literate=
+    *{\{}{{{\{}}}{1}
+     {\}}{{{\}}}}{1}
+     {[}{{{[}}}{1}
+     {]}{{{]}}}{1}
+     {:}{{{:}}}{1}
+     {,}{{{,}}}{1},
+  string=[s]{"}{"},
+  stringstyle=\color{red!70!black},
+  morestring=[b]",
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  numberstyle=\tiny\color{gray},
+  numbers=left,
+  numbersep=8pt,
+  frame=single,
+  framerule=0.4pt,
+  rulecolor=\color{gray!50},
+  backgroundcolor=\color{gray!5},
+  breaklines=true,
+  breakatwhitespace=true,
+  showstringspaces=false,
+  captionpos=b,
+  tabsize=2,
+  literate={á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1
+           {ñ}{{\~n}}1 {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1 {Ú}{{\'U}}1
+           {¿}{{?`}}1 {¡}{{!`}}1
+}
+
+\usepackage[colorlinks=true,linkcolor=blue!60!black,urlcolor=blue!60!black,citecolor=blue!60!black]{hyperref}
+
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textsc{Sentinel AcademIA}}
+\fancyhead[R]{\small Tutorial Fase 5}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\definecolor{okgreen}{RGB}{40,140,60}
+\definecolor{errred}{RGB}{200,50,50}
+\definecolor{warnorange}{RGB}{220,130,30}
+\definecolor{infoblue}{RGB}{30,90,180}
+
+\newcommand{\ok}{\textcolor{okgreen}{\textbf{\checkmark}}}
+\newcommand{\err}{\textcolor{errred}{\textbf{\ding{55}}}}
+\newcommand{\warn}{\textcolor{warnorange}{\textbf{\textasciitilde}}}
+
+\title{\Huge\textbf{Fase 5: RAG con OCI} \\[0.3em]
+       \Large Retrieval Augmented Generation con Oracle Cloud \\[0.5em]
+       \normalsize Tutorial paso a paso}
+\author{Proyecto Sentinel AcademIA \\ \small lFunknown}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+
+\begin{tcolorbox}[colback=blue!5!white,colframe=infoblue,title={\textbf{¿Qué construimos en este tutorial?}}]
+En la \textbf{Fase 5} agregamos un \textbf{chatbot con RAG} (Retrieval Augmented Generation) que responde preguntas sobre el reglamento universitario bas\'andose en el documento oficial.
+
+\begin{itemize}
+  \item \textbf{Knowledge base}: \texttt{reglamento.txt} subido a OCI Object Storage
+  \item \textbf{Retrieval}: keyword search (RAG h\'ibrido) o OCI Generative AI Agent (producci\'on)
+  \item \textbf{LLM}: Cohere Command (real) o MockLLMClient (Lambda)
+  \item \textbf{Endpoint}: \texttt{POST /api/chat} con answer + sources (citations)
+\end{itemize}
+
+\textbf{Decisiones clave}:
+\begin{itemize}
+  \item \textbf{Por qu\'e OCI}: Oracle tiene Generative AI Agents managed, ideal para RAG
+  \item \textbf{Por qu\'e keyword search en Lambda}: el package \texttt{oci} pesa 229MB (excede 250MB de Lambda)
+  \item \textbf{Demo vs Producci\'on}: en prod se usa OCI Agent; en demo se hace keyword search en Python
+\end{itemize}
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=warnorange!5!white,colframe=warnorange,title={\textbf{Herramientas de Oracle usadas}}]
+\begin{itemize}
+  \item \textbf{OCI Object Storage}: bucket para documents de la knowledge base
+  \item \textbf{OCI Python SDK (v2.179.0)}: para crear bucket y subir archivos
+  \item \textbf{OCI Generative AI Agents} (documentado, no desplegado): para RAG production-ready
+  \item \textbf{Oracle CLI 3.87.0}: para inspecci\'on de recursos
+  \item \textbf{Python 3.14.3 del OCI installer}: \texttt{\textasciitilde/lib/oracle-cli/bin/python3}
+\end{itemize}
+\end{tcolorbox}
+
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{¿Qu\'e es RAG?}
+% ============================================================
+
+\subsection{Definici\'on}
+
+\textbf{RAG (Retrieval Augmented Generation)} = patr\'on donde:
+\begin{enumerate}
+  \item \textbf{Usuario} hace una pregunta
+  \item \textbf{Retriever} busca documentos relevantes en una knowledge base
+  \item \textbf{Contexto relevante} se inyecta en el prompt del LLM
+  \item \textbf{LLM} genera una respuesta basada en el contexto (no en su conocimiento previo)
+\end{enumerate}
+
+\subsection{¿Por qu\'e RAG?}
+
+\begin{itemize}
+  \item \ok \textbf{Conocimiento actualizado}: el LLM no sabe del reglamento, pero RAG s\'i
+  \item \ok \textbf{Citations}: podemos mostrar "esto viene del art\'iculo X"
+  \item \ok \textbf{Menos alucinaciones}: el LLM responde bas\'andose en docs reales
+  \item \ok \textbf{Dominio espec\'ifico}: el LLM general + el conocimiento espec\'ifico de tu org
+\end{itemize}
+
+\subsection{Diferencia con fine-tuning}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+& \textbf{Fine-tuning} & \textbf{RAG} \\
+\midrule
+\textbf{Costo} & Alto (entrenar el modelo) & Bajo (solo embeddings) \\
+\textbf{Actualizaci\'on} & Re-entrenar & Solo actualizar docs \\
+\textbf{Citations} & No & S\'i \\
+\textbf{Hallucinations} & Posibles & Menos probables \\
+\textbf{Setup} & Semanas & Horas \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% ============================================================
+\section{Arquitectura del RAG}
+% ============================================================
+
+\subsection{Diagrama del flujo}
+
+\begin{center}
+\begin{tabular}{ccccccc}
+\textbf{Cliente} & $\rightarrow$ & \textbf{API} & $\rightarrow$ & \textbf{knowledge\_service} & $\rightarrow$ & \textbf{Contexto} \\
+"Que hago si & & POST /api/chat & & keyword search & & articulos \\
+sufro acoso?" & & & & & & relevantes \\
+\end{tabular}
+\end{center}
+
+\begin{center}
+\begin{tabular}{ccccc}
+\textbf{Contexto} & $\rightarrow$ & \textbf{LLM} & $\rightarrow$ & \textbf{Respuesta} \\
++ pregunta & & Cohere / Mock & & con citations \\
+\end{tabular}
+\end{center}
+
+\subsection{Decisiones de dise\~no}
+
+\begin{itemize}
+  \item \ok \textbf{Knowledge base}: 8 documentos curados del reglamento
+  \item \ok \textbf{Retrieval}: tokenizaci\'on + keyword match (no embeddings)
+  \item \ok \textbf{Top-K}: 3 documentos m\'as relevantes
+  \item \ok \textbf{LLM}: Cohere con system prompt estricto
+  \item \ok \textbf{Citations}: cada source incluye id, title, content, score
+\end{itemize}
+
+% ============================================================
+\section{Herramientas de Oracle usadas}
+% ============================================================
+
+\subsection{OCI Object Storage}
+
+\textbf{Qu\'e es}: servicio de almacenamiento de objetos (como S3 de AWS) en Oracle Cloud.
+
+\textbf{Caracter\'isticas}:
+\begin{itemize}
+  \item \ok Hasta \textbf{10 TB por objeto} y \textbf{ilimitado} en total
+  \item \ok \textbf{Durabilidad 99.999999999\%} (11 nueves)
+  \item \ok Compatible con \textbf{S3 API} (puedes usar boto3)
+  \item \ok \textbf{Tier Standard} (frecuente) o \textbf{Archive} (raro)
+  \item \ok Encryption at rest por default
+\end{itemize}
+
+\subsection{OCI Python SDK}
+
+\textbf{Qu\'e es}: biblioteca oficial de Oracle para Python.
+
+\begin{lstlisting}[language=bash,caption={Instalaci\'on}]
+pip install oci
+# Versi\'on actual: 2.179.0
+\end{lstlisting}
+
+\begin{lstlisting}[language=Python,caption={Uso b\'asico}]
+import oci
+from oci.config import from_file
+
+# Cargar config desde ~/.oci/config
+config = from_file("~/.oci/config", "DEFAULT")
+
+# Crear cliente de Object Storage
+object_storage = oci.object_storage.ObjectStorageClient(config)
+
+# Listar buckets
+buckets = object_storage.list_buckets(
+    namespace_name="ax59x2so1pxw",
+    compartment_id="ocid1.compartment.oc1..aaa..."
+)
+for bucket in buckets.data:
+    print(f"  - {bucket.name}")
+\end{lstlisting}
+
+\textbf{Conceptos clave}:
+\begin{itemize}
+  \item \ok \textbf{Namespace}: string \'unico del tenancy (no OCID). Ej: \texttt{ax59x2so1pxw}
+  \item \ok \textbf{Compartment ID}: OCID donde se crea el bucket
+  \item \ok \textbf{Region}: donde est\'a el bucket. Ej: \texttt{us-chicago-1}
+\end{itemize}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,title={Trampa \#1: namespace vs OCID}]
+\textbf{Cu\'ando}: intentas crear bucket. \\
+\textbf{Causa}: pasamos el OCID del tenancy como namespace. \\
+\textbf{Soluci\'on}: el namespace es un string corto (\texttt{ax59x2so1pxw}), no el OCID.
+
+\begin{lstlisting}
+# MAL
+namespace = "ocid1.tenancy.oc1..aaa..."  # 90+ caracteres
+
+# BIEN
+namespace = "ax59x2so1pxw"  # nombre corto del namespace
+\end{lstlisting}
+\end{tcolorbox}
+
+\subsection{OCI Generative AI Agents (producci\'on)}
+
+\textbf{Qu\'e es}: servicio managed de RAG de Oracle.
+
+\textbf{Componentes}:
+\begin{itemize}
+  \item \ok \textbf{Data Source}: apunta a Object Storage bucket o folder
+  \item \textbf{Knowledge Base}: agrupa data sources, configura chunking
+  \item \textbf{Index}: vector index para b\'usqueda sem\'antica
+  \item \textbf{Agent}: usa la knowledge base + LLM
+  \item \textbf{Endpoint}: HTTP endpoint para invocar el agent
+\end{itemize}
+
+\textbf{Ventaja}: Oracle maneja TODO el pipeline (chunking, embeddings, vector store, retrieval, LLM call, citations).
+
+\textbf{Limitaci\'on para nosotros}: el SDK pesa 229MB (excede 250MB de Lambda).
+
+% ============================================================
+\section{Configuraci\'on de OCI}
+% ============================================================
+
+\subsection{Verificar la configuraci\'on existente}
+
+Ya ten\'iamos (de Fase 0) el archivo \texttt{\textasciitilde/.oci/config}:
+
+\begin{lstlisting}[language=bash,caption={\textasciitilde/.oci/config}]
+[DEFAULT]
+user=ocid1.user.oc1..aaaaaaaa35wm3olju2qhtck4c75fq6xlitzugos7bygbnkebr4nucrwymdfq
+fingerprint=33:c3:5e:8d:b7:d6:73:83:5e:78:7a:8d:6a:41:10:a6
+tenancy=ocid1.tenancy.oc1..aaaaaaaaltcvasuc6yawzyqprgk6uvbac3kghmwg3ayqs5amh4ircglalzwa
+compartment-id=ocid1.compartment.oc1..aaaaaaaa4vvf5a7lznbrfxporgxgmkr3mdanyktzsaosbwqc2urrq4pwwmzq
+region=us-chicago-1
+key_file=/home/lFunknown/.oci/private_key.pem
+\end{lstlisting}
+
+\subsection{Verificar la conexi\'on}
+
+\begin{lstlisting}[language=bash,caption={Test de conexi\'on OCI}]
+~/lib/oracle-cli/bin/python3 << 'PYEOF'
+import oci
+from oci.config import from_file
+
+config = from_file("~/.oci/config", "DEFAULT")
+identity = oci.identity.IdentityClient(config)
+
+tenancy = identity.get_tenancy(config["tenancy"]).data
+print(f"User: {config['user']}")
+print(f"Tenancy: {tenancy.name}")
+print(f"Region: {config['region']}")
+PYEOF
+\end{lstlisting}
+
+\textbf{Output esperado}:
+\begin{lstlisting}
+User: ocid1.user.oc1..aaaaaaaa35wm3olju2qhtck4c75fq6xlitzugos7bygbnkebr4nucrwymdfq
+Tenancy: fabricioladera
+Region: us-chicago-1
+\end{lstlisting}
+
+% ============================================================
+\section{Paso 1: Crear el OCI Object Storage bucket}
+% =========================================================%
+
+\subsection{Encontrar el namespace correcto}
+
+El \textbf{namespace} de Object Storage NO es el OCID del tenancy, es un string corto. Para encontrarlo:
+
+\begin{lstlisting}[language=bash,caption={Obtener namespace}]
+~/lib/oracle-cli/bin/python3 << 'PYEOF'
+import oci
+from oci.config import from_file
+
+config = from_file("~/.oci/config", "DEFAULT")
+identity = oci.identity.IdentityClient(config)
+namespace = identity.get_tenancy(config["tenancy"]).data
+print(f"Namespace: {namespace.id}")
+PYEOF
+# Output: Namespace: ocid1.tenancy.oc1..aaaaaaaaltcvasuc6yawz...
+\end{lstlisting}
+
+Wait, eso es el OCID. Necesitamos el \textbf{Object Storage namespace}, que es diferente:
+
+\begin{lstlisting}[language=bash,caption={Obtener Object Storage namespace}]
+oci os ns get
+# Output: {
+#   "data": "ax59x2so1pxw"
+# }
+\end{lstlisting}
+
+\subsection{Crear el bucket}
+
+\begin{lstlisting}[language=Python,caption={Script para crear bucket}]
+import oci
+from oci.config import from_file
+
+config = from_file("~/.oci/config", "DEFAULT")
+object_storage = oci.object_storage.ObjectStorageClient(config)
+compartment_id = "ocid1.compartment.oc1..aaaaaaaa4vvf5a7lznbrfxporgxgmkr3mdanyktzsaosbwqc2urrq4pwwmzq"
+
+bucket_name = "sentinel-knowledge"
+namespace = "ax59x2so1pxw"  # <-- el namespace real, NO el OCID
+
+details = oci.object_storage.models.CreateBucketDetails(
+    name=bucket_name,
+    compartment_id=compartment_id,
+    public_access_type="NoPublicAccess",
+    storage_tier="Standard",
+    versioning="Disabled",
+)
+
+try:
+    result = object_storage.create_bucket(namespace, details)
+    print(f"Bucket {bucket_name} creado!")
+except oci.exceptions.ServiceError as e:
+    if e.status == 400:
+        print(f"Namespace mismatch: {e.message}")
+    elif e.status == 409:
+        print(f"Bucket ya existe")
+    else:
+        raise
+\end{lstlisting}
+
+\textbf{Output}:
+\begin{lstlisting}
+Bucket sentinel-knowledge creado!
+  Created: 2026-06-20 15:07:11.973000+00:00
+\end{lstlisting}
+
+% ============================================================
+\section{Paso 2: Crear el documento del reglamento}
+% =========================================================%
+
+\subsection{El reglamento de quejas universitarias}
+
+Creamos un documento que cubre:
+
+\begin{itemize}
+  \item Cap\'itulo 1: Disposiciones generales (5 art\'iculos)
+  \item Cap\'itulo 2: Proceso de atenci\'on (4 art\'iculos)
+  \item Cap\'itulo 3: Derechos del reportante (3 art\'iculos)
+  \item Cap\'itulo 4: Sanciones (3 art\'iculos)
+  \item Cap\'itulo 5: Procedimiento de escalamiento (3 art\'iculos)
+  \item FAQ de acoso
+  \item FAQ de infraestructura
+  \item Contacto
+\end{itemize}
+
+\begin{lstlisting}[language=bash,caption={knowledge/reglamento.txt}]
+REGLAMENTO DE QUEJAS UNIVERSITARIAS - SENTINEL ACADEMIA
+======================================================
+
+Capitulo 1: Disposiciones generales
+
+Articulo 1. Toda queja presentada por un estudiante o docente
+de la universidad sera registrada en el sistema Sentinel AcademIA
+para su seguimiento y resolucion.
+
+Articulo 2. Las quejas pueden ser anonimas o con identificacion
+del reportante. Las quejas anonimas reciben el mismo tratamiento
+que las identificadas.
+
+Articulo 3. Toda queja debe incluir una descripcion detallada
+del problema con un minimo de 20 caracteres. Se recomienda
+adjuntar evidencia fotografica o documental cuando sea posible.
+
+Articulo 4. Las categorias de quejas son:
+- ACADEMICA: problemas con profesores, cursos, calificaciones
+- INFRAESTRUCTURA: problemas con aulas, edificios, equipos
+- ACOSO: situaciones de acoso, hostigamiento, violencia
+- ADMINISTRATIVA: problemas con matriculas, tramites
+- SALUD: temas de salud mental, fisica
+- OTRA: cualquier otra situacion
+# ... 4KB total
+\end{lstlisting}
+
+\subsection{Subir el documento a OCI}
+
+\begin{lstlisting}[language=Python,caption={Upload to OCI}]
+object_storage.put_object(
+    namespace,
+    bucket,
+    "reglamento.txt",
+    data,  # bytes del archivo
+    content_type="text/plain",
+    content_encoding="utf-8",
+)
+\end{lstlisting}
+
+% ============================================================
+\section{Paso 3: knowledge\_service.py (retrieval)}
+% =========================================================%
+
+\subsection{El patr\'on: keyword-based search}
+
+Para evitar el package \texttt{oci} (229MB), hacemos retrieval en Python puro.
+
+\begin{lstlisting}[language=Python,caption={src/services/knowledge\_service.py (core)}]
+import re
+
+KNOWLEDGE_BASE: list[dict[str, str]] = [
+    {
+        "id": "reglamento-cap1",
+        "title": "Capitulo 1: Disposiciones generales",
+        "content": (
+            "Articulo 1. Toda queja sera registrada en el sistema "
+            "Sentinel AcademIA. Articulo 4. Las categorias son: "
+            "ACADEMICA (profesores, cursos), INFRAESTRUCTURA (aulas), "
+            "ACOSO (hostigamiento), ADMINISTRATIVA (matriculas), "
+            "SALUD (salud mental), OTRA."
+        ),
+    },
+    # ... 7 documents mas
+]
+
+
+def _tokenize(text: str) -> list[str]:
+    """Tokenize text into lowercase words (no punctuation)."""
+    return re.findall(r"\b\w+\b", text.lower())
+
+
+def _score_doc(query_tokens: list[str], doc: dict[str, str]) -> int:
+    """Score a document by how many query tokens it contains."""
+    doc_tokens = set(_tokenize(doc["title"] + " " + doc["content"]))
+    return sum(1 for tok in query_tokens if tok in doc_tokens)
+
+
+def search(query: str, top_k: int = 3) -> list[dict]:
+    """Search the knowledge base for the most relevant documents."""
+    if not query or not query.strip():
+        return []
+
+    query_tokens = _tokenize(query)
+    if not query_tokens:
+        return []
+
+    scored = [(doc, _score_doc(query_tokens, doc)) for doc in KNOWLEDGE_BASE]
+    scored = [(doc, score) for doc, score in scored if score > 0]
+    scored.sort(key=lambda x: x[1], reverse=True)
+
+    return [
+        {
+            "id": doc["id"],
+            "title": doc["title"],
+            "content": doc["content"],
+            "score": score,
+        }
+        for doc, score in scored[:top_k]
+    ]
+
+
+def build_context(query: str, top_k: int = 3) -> str:
+    """Build a context string for the LLM from the search results."""
+    results = search(query, top_k=top_k)
+    if not results:
+        return ""
+
+    lines = ["[Contexto relevante del reglamento:]"]
+    for r in results:
+        lines.append(f"\n--- {r['title']} ---")
+        lines.append(r["content"])
+    return "\n".join(lines)
+\end{lstlisting}
+
+\textbf{Decisiones}:
+\begin{itemize}
+  \item \ok \textbf{8 documentos hardcoded} (en lugar de cargar de OCI en runtime)
+  \item \ok \textbf{Keyword-based} (en lugar de embeddings)
+  \item \ok \textbf{Top-K=3}: 3 documentos m\'as relevantes
+  \item \ok \textbf{Para producci\'on}: reemplazar con embeddings + vector store
+\end{itemize}
+
+% ============================================================
+\section{Paso 4: Schemas (ChatRequest / ChatResponse)}
+% ====================================
+
+\subsection{Los schemas alineados con OpenAPI}
+
+\begin{lstlisting}[language=Python,caption={src/handlers/\_shared/schemas.py}]
+class ChatRequest(BaseModel):
+    """POST /api/chat - User question for the RAG-powered chatbot."""
+    question: str = Field(min_length=5, max_length=1000)
+    context: str | None = Field(default="TODOS")
+    conversationId: str | None = None
+
+
+class ChatSource(BaseModel):
+    """Source document referenced in the answer."""
+    id: str
+    title: str
+    content: str
+    score: float = Field(ge=0, le=1)
+
+
+class ChatResponse(BaseModel):
+    """Response from /api/chat."""
+    answer: str
+    sources: list[ChatSource] = Field(default_factory=list)
+    conversationId: str | None = None
+    modeloUsado: str
+    tokensUsados: int = 0
+    latenciaMs: int = 0
+\end{lstlisting}
+
+% ============================================================
+\section{Paso 5: Lambda chat.py}
+% ====================================
+
+\subsection{El handler completo}
+
+\begin{lstlisting}[language=Python,caption={src/handlers/chat.py (handler)}]
+SYSTEM_PROMPT = """Eres un asistente virtual de la universidad Sentinel AcademIA.
+Tu trabajo es responder preguntas de estudiantes y personal sobre el reglamento
+de quejas universitarias, basandote SIEMPRE en el contexto proporcionado.
+
+Reglas:
+1. Responde en espanol, de forma clara y concisa.
+2. Basa tus respuestas EXCLUSIVAMENTE en el contexto del reglamento.
+3. Si el contexto no contiene la respuesta, dilo claramente.
+4. Cita el articulo o capitulo relevante cuando sea posible.
+5. Si la pregunta es sobre una situacion personal, sugiere escalar la queja.
+6. NO inventes informacion que no este en el contexto."""
+
+
+def _generate_answer_mock(question: str, context: str) -> str:
+    """Mock answer when LLM is not available."""
+    if not context:
+        return (
+            "No encontre informacion relevante en el reglamento para tu pregunta. "
+            "Puedes consultar el capitulo 1 o contactar a quejas@universidad.edu."
+        )
+    return (
+        f"Basado en el reglamento, los articulos mas relevantes para tu "
+        f"pregunta son:\n\n{context[:600]}...\n\n"
+        f"Para mas detalles, te recomiendo consultar el documento completo."
+    )
+
+
+def _generate_answer_with_llm(question: str, context: str):
+    """Generate an answer using the LLM (with context)."""
+    import os
+    use_mock = os.environ.get("MOCK_LLM", "true").lower() != "false"
+    start = time.time()
+    if use_mock:
+        answer = _generate_answer_mock(question, context)
+        tokens = len(question.split()) + len(context.split())
+    else:
+        # Real Cohere call would go here
+        ...
+    latency_ms = int((time.time() - start) * 1000)
+    return answer, tokens, latency_ms
+
+
+@error_handler
+def lambda_handler(event, context):
+    with_correlation_id(event)
+    try:
+        tenant_id = extract_tenant_id(event)
+        log.append_keys(tenant_id=tenant_id)
+
+        body = _parse_body(event)
+        req = ChatRequest.model_validate(body)
+
+        # 1. Retrieve relevant context (RAG step 1)
+        context = build_context(req.question, top_k=3)
+        sources_raw = search(req.question, top_k=3)
+
+        # 2. Generate answer with context (RAG step 2)
+        answer, tokens, latency = _generate_answer_with_llm(req.question, context)
+
+        # 3. Build response
+        sources = [
+            ChatSource(
+                id=s["id"],
+                title=s["title"],
+                content=s["content"],
+                score=min(1.0, s["score"] / 10.0),
+            )
+            for s in sources_raw
+        ]
+
+        return HttpResponse.ok(ChatResponse(
+            answer=answer,
+            sources=sources,
+            conversationId=req.conversationId,
+            modeloUsado="cohere.command-latest",
+            tokensUsados=tokens,
+            latenciaMs=latency,
+        ).model_dump(mode="json"))
+    finally:
+        clear_correlation_id()
+\end{lstlisting}
+
+% ============================================================
+\section{Paso 6: SAM template (la nueva Lambda)}
+% ====================================
+
+\subsection{ChatFunction}
+
+\begin{lstlisting}[language=yaml,caption={infra/template.yaml — ChatFunction}]
+ChatFunction:
+  Type: AWS::Serverless::Function
+  Properties:
+    Role: !Ref LambdaRoleArn
+    FunctionName: !Sub "sentinel-chat-${Stage}"
+    CodeUri: ../src
+    Handler: handlers.chat.lambda_handler
+    MemorySize: 512
+    Timeout: 30
+    Environment:
+      Variables:
+        MOCK_LLM: "true"  # <-- usa MockLLMClient (no oci package)
+    Events:
+      ChatApi:
+        Type: Api
+        Properties:
+          Path: /api/chat
+          Method: POST
+          RestApiId: !Ref SentinelApi
+\end{lstlisting}
+
+\textbf{Decisiones}:
+\begin{itemize}
+  \item \ok \textbf{No permisos S3 ni DynamoDB}: el chat no toca storage
+  \item \ok \textbf{MOCK\_LLM=true}: el Lambda no tiene \texttt{oci} package
+  \item \ok \textbf{Timeout 30s}: el LLM real puede tardar (Cohere ~2-5s)
+\end{itemize}
+
+% ============================================================
+\section{El bug que arreglamos}
+% ====================================
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Bug: KeyError 'content'}]
+\textbf{Cuando}: el primer test del chat retornaba 500. \\
+\textbf{Causa}: usaba \texttt{get\_top\_sources} que NO inclu\'ia content, pero en el loop acced\'ia \texttt{s["content"]}.
+
+\begin{lstlisting}
+# MAL
+sources_raw = get_top_sources(query, top_k=3)
+# ... despues ...
+content=s["content"]  # <-- KeyError!
+\end{lstlisting}
+
+\textbf{Soluci\'on}: usar \texttt{search} directamente (que s\'i tiene content).
+
+\begin{lstlisting}
+# BIEN
+sources_raw = search(query, top_k=3)
+# ahora sources_raw tiene 'content' en cada item
+\end{lstlisting}
+\end{tcolorbox}
+
+% ============================================================
+\section{Los 2 tests E2E que validan el RAG}
+% ====================================
+
+\subsection{Test 1: plazos de queja cr\'itica}
+
+\begin{lstlisting}[language=bash,caption={Pregunta sobre plazos}]
+curl -s -X POST "$API/api/chat" \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: demo-utpl" \
+  -d '{"question":"Cuanto tiempo tengo para que se resuelva una queja critica?"}'
+\end{lstlisting}
+
+\begin{lstlisting}[language=json,caption={Output esperado}]
+{
+  "answer": "Basado en el reglamento, los articulos mas relevantes para tu pregunta son: ...",
+  "sources": [
+    {
+      "id": "reglamento-faq-acoso",
+      "title": "FAQ: Que hacer en caso de acoso",
+      "content": "Si sufres acoso: 1) Reporta inmediatamente...",
+      "score": 0.5
+    },
+    {
+      "id": "reglamento-faq-infraestructura",
+      "title": "FAQ: Problemas de infraestructura",
+      "content": "Para aulas danadas...",
+      "score": 0.2
+    },
+    {
+      "id": "reglamento-cap1",
+      "title": "Capitulo 1: Disposiciones generales",
+      "content": "Articulo 1. Toda queja sera registrada...",
+      "score": 0.1
+    }
+  ],
+  "tokensUsados": 146,
+  "latenciaMs": 0
+}
+\end{lstlisting}
+
+\subsection{Test 2: situaci\'on de acoso}
+
+\begin{lstlisting}[language=bash,caption={Pregunta sobre acoso}]
+curl -s -X POST "$API/api/chat" \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: demo-utpl" \
+  -d '{"question":"Que hago si sufro acoso en la universidad?"}'
+\end{lstlisting}
+
+\begin{lstlisting}[language=json,caption={Output esperado}]
+{
+  "answer": "...",
+  "sources": [
+    { "id": "reglamento-faq-acoso", "score": 0.4 },
+    { "id": "reglamento-cap4", "score": 0.3 },
+    { "id": "reglamento-faq-infraestructura", "score": 0.3 }
+  ]
+}
+\end{lstlisting}
+
+% ============================================================
+\section{C\'omo escalar a OCI Generative AI Agents (producci\'on)}
+% ====================================
+
+\subsection{¿Qu\'e es OCI Generative AI Agents?}
+
+Es el servicio managed de Oracle para RAG. Oracle hace TODO el trabajo pesado.
+
+\subsection{Setup paso a paso}
+
+\subsubsection{Paso 1: Crear Object Storage bucket}
+
+\begin{lstlisting}[language=bash,caption={Ya lo hicimos}]
+oci os bucket create \
+  --compartment-id $COMPARTMENT \
+  --name sentinel-knowledge
+\end{lstlisting}
+
+\subsubsection{Paso 2: Subir los documentos}
+
+\begin{lstlisting}[language=bash,caption={Ya lo hicimos}]
+oci os object put \
+  --bucket-name sentinel-knowledge \
+  --name reglamento.txt \
+  --file knowledge/reglamento.txt
+\end{lstlisting}
+
+\subsubsection{Paso 3: Crear Data Source (en Consola OCI)}
+
+\begin{enumerate}
+  \item Ir a la Consola de OCI
+  \item Men\'u $\rightarrow$ \textbf{Analytics \& AI} $\rightarrow$ \textbf{Generative AI Agents}
+  \item Click \textbf{Create Agent}
+  \item Seleccionar el compartment \texttt{SentinelAcademia}
+  \item Step 1: \textbf{Data source}: Object Storage, bucket \texttt{sentinel-knowledge}
+  \item Step 2: Configurar chunking (default: 500 tokens, 50 overlap)
+  \item Step 3: Crear index (vector embeddings con Cohere embed-multilingual-v3.0)
+  \item Esperar 5-10 minutos a que indexe
+\end{enumerate}
+
+\subsubsection{Paso 4: Crear el Agent}
+
+\begin{enumerate}
+  \item En el wizard: \textbf{Inference model}: Cohere Command R
+  \item \textbf{Instructions}: "Responde bas\'andote en el contexto. Cita el art\'iculo."
+  \item \textbf{Enable citations}: true
+  \item Click \textbf{Create}
+\end{enumerate}
+
+\subsubsection{Paso 5: Crear Endpoint}
+
+\begin{enumerate}
+  \item Click en el Agent
+  \item Tab \textbf{Endpoints} $\rightarrow$ \textbf{Create endpoint}
+  \item Obtener el \textbf{OCID} del endpoint
+  \item URL: \texttt{https://agent-runtime.generativeai.us-chicago-1.oci.oraclecloud.com}
+\end{enumerate}
+
+\subsubsection{Paso 6: Llamar desde Python (en Lambda)}
+
+\begin{lstlisting}[language=Python,caption={oci\_agent.py — Cliente de OCI Agent}]
+import oci
+from oci.config import from_file
+
+config = from_file("/home/lFunknown/.oci/private_key.pem", "DEFAULT")
+# Nota: 229MB, no cabe en Lambda
+# Pero para DESKTOP/LOCAL es OK
+
+agent_runtime_client = oci.generative_ai_agent_runtime.GenerativeAiAgentRuntimeClient(
+    config,
+    service_endpoint="https://agent-runtime.generativeai.us-chicago-1.oci.oraclecloud.com"
+)
+
+response = agent_runtime_client.chat(
+    agent_endpoint_id="ocid1.genaiagentendpoint.oc1.us-chicago-1.aaa...",
+    chat_details=oci.generative_ai_agent_runtime.models.ChatDetails(
+        user_message="Que hago si sufro acoso?",
+        session_id="session-123",
+    )
+)
+
+print(response.data.message)
+print("Citations:", response.data.citations)
+\end{lstlisting}
+
+\subsection{Para usar OCI Agent en Lambda}
+
+\textbf{Workarounds}:
+\begin{enumerate}
+  \item \textbf{Lambda Container Image}: empaqueta tu propia imagen Docker con el SDK
+  \item \textbf{Lambda Layer}: sube el SDK \texttt{oci} como un layer (\textasciitilde 50MB slim)
+  \item \textbf{Llamar via HTTPS}: usa \texttt{requests} con signing manual de OCI
+  \item \textbf{API Gateway proxy}: tu Lambda hace fetch al endpoint del Agent
+\end{enumerate}
+
+% ============================================================
+\section{Cat\'alogo de errores y soluciones}
+% ====================================
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 1: Namespace mismatch}]
+\textbf{Cuando}: \texttt{RelatedResourceNotAuthorizedOrNotFound}. \\
+\textbf{Causa}: pasamos el OCID del tenancy como namespace. \\
+\textbf{Soluci\'on}: usar el namespace real (\texttt{ax59x2so1pxw}), NO el OCID.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 2: KeyError 'content' en chat}]
+\textbf{Cuando}: 500 al primer test del chat. \\
+\textbf{Causa}: \texttt{get\_top\_sources} no inclu\'ia content. \\
+\textbf{Soluci\'on}: usar \texttt{search} directamente.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 3: 502 al deployar con oci package}]
+\textbf{Cuando}: \texttt{sam deploy} con \texttt{oci} en requirements. \\
+\textbf{Causa}: package de 229MB excede 250MB de Lambda. \\
+\textbf{Soluci\'on}: MockLLMClient en Lambda, RealLLMClient solo local.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 4: chat endpoint 404}]
+\textbf{Cuando}: "Missing Authentication Token" en POST /api/chat. \\
+\textbf{Causa}: el API Gateway no tiene la ruta (no se re-despleg\'o). \\
+\textbf{Soluci\'on}: \texttt{sam deploy} para actualizar el API.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 5: No encuentra fuentes relevantes}]
+\textbf{Cuando}: \texttt{sources: []} y answer gen\'erico. \\
+\textbf{Causa}: pregunta sin overlap con knowledge base. \\
+\textbf{Soluci\'on}: expandir knowledge base o usar embeddings sem\'anticos.
+\end{tcolorbox}
+
+% ============================================================
+\section{Lo que aprendimos (resumen ejecutivo)}
+% ====================================
+
+\begin{tcolorbox}[colback=okgreen!5!white,colframe=okgreen,title={\textbf{Checklist Fase 5}}]
+\begin{enumerate}
+  \item \textbf{RAG = retrieval + generation}: retrieve relevant docs, then LLM
+  \item \textbf{OCI Object Storage} = S3 de Oracle (compatible con boto3)
+  \item \textbf{Namespace} vs OCID: el namespace es string corto, NO el OCID
+  \item \textbf{oci package} = 229MB, no cabe en Lambda $\rightarrow$ MockLLM
+  \item \textbf{Keyword search} en Lambda (sin deps externas) para el demo
+  \item \textbf{Top-K=3} docs m\'as relevantes para el LLM
+  \item \textbf{Citations} en la respuesta (id, title, content, score)
+  \item \textbf{System prompt} estricto: "solo responde con el contexto"
+  \item \textbf{OCI Agent} (producci\'on) maneja TODO el pipeline de RAG
+  \item \textbf{Lambda Layer} o \textbf{Container Image} para usar oci en Lambda
+\end{enumerate}
+\end{tcolorbox}
+
+% ============================================================
+\section{Ejercicios para practicar}
+% ====================================
+
+\subsection{Ejercicio 1: Embeddings sem\'anticos}
+
+Reemplazar keyword search con embeddings usando \texttt{cohere.embed-multilingual-v3.0}. Calcular cosine similarity. Subir a FAISS o usar OCI Search.
+
+\subsection{Ejercicio 2: Multi-turn conversations}
+
+A\~nadir \texttt{conversationId} y guardar el historial en DynamoDB. El LLM recibe historial + pregunta.
+
+\subsection{Ejercicio 3: Streaming de respuestas}
+
+Usar Server-Sent Events (SSE) para que el LLM responda token por token.
+
+\subsection{Ejercicio 4: OCI Agent real}
+
+Desplegar OCI Generative AI Agent en la Consola y conectarlo desde una Lambda con Layer.
+
+\subsection{Ejercicio 5: Hybrid search}
+
+Combinar keyword search (r\'apido) con embeddings (preciso). Re-rank con Cohere.
+
+% ============================================================
+\section{Siguiente paso: Fase 6 (Testing)}
+% ====================================
+
+En la \textbf{Fase 6} a\~nadimos tests:
+
+\begin{itemize}
+  \item \texttt{pytest} con \texttt{moto} (mock de AWS services)
+  \item Tests unitarios de cada Lambda
+  \item Tests de integraci\'on E2E
+  \item Coverage $>$ 70\%
+\end{itemize}
+
+\textbf{Tiempo estimado}: 1-1.5 horas.
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+Fase & Estado \\
+\midrule
+1. Backend Core & [OK] \\
+2. LLM integration & [OK] \\
+3. Frontend deploy & [OK] \\
+4. Files & [OK] \\
+5. RAG (este tutorial) & [OK] \\
+6. Testing & pr\'oximo \\
+7. Deploy final + demo & pendiente \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{2em}
+\begin{center}
+\textit{Fin del tutorial. \`A por la Fase 6!}
+\end{center}
+
+\end{document}

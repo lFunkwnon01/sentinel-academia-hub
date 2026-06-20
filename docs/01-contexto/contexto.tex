@@ -1,0 +1,317 @@
+\documentclass[11pt,a4paper]{article}
+
+% Paquetes basicos
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{tcolorbox}
+\usepackage{hyperref}
+
+% Colores del proyecto
+\definecolor{primary}{HTML}{2563EB}
+\definecolor{critical}{HTML}{DC2626}
+\definecolor{success}{HTML}{10B981}
+\definecolor{codebg}{HTML}{F1F5F9}
+\definecolor{warning}{HTML}{F59E0B}
+
+% Hyperlinks
+\hypersetup{
+    colorlinks=true,
+    linkcolor=primary,
+    urlcolor=primary,
+    citecolor=primary,
+    pdftitle={Contexto - Sentinel AcademIA},
+    pdfauthor={Equipo Sentinel AcademIA}
+}
+
+% Formato de titulos
+\titleformat{\section}{\Large\bfseries\color{primary}}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries\color{primary!80!black}}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries}{\thesubsubsection}{1em}{}
+
+% Headers y footers
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\small Sentinel AcademIA \textbar{} Criterio 1}
+\lhead{\small Contexto de la Problem\'atica}
+\rfoot{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% Metadata del documento
+\title{
+    \vspace{-1cm}
+    {\Huge\bfseries\color{primary} Sentinel AcademIA}\\[0.4cm]
+    {\Large Contexto de la Problem\'atica e Impacto Esperado}\\[0.6cm]
+    {\normalsize Plataforma Universitaria de Quejas con IA Generativa}\\[0.3cm]
+    {\small Hackat\'on: Arquitectura Basada en Eventos e Integraci\'on con LLMs}
+}
+\author{
+    \textbf{Equipo de Desarrollo} \\
+    \texttt{sentinel-academia@universidad.edu}
+}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{fancy}
+
+\begin{tcolorbox}[colback=codebg, colframe=primary, title=\textbf{Resumen Ejecutivo}]
+\small
+\textit{Sentinel AcademIA} es una plataforma \textbf{serverless multi-nube} que centraliza, analiza y prioriza las quejas de la comunidad universitaria mediante \textbf{inteligencia artificial generativa}, reduciendo el tiempo de primera respuesta de d\'ias a minutos y permitiendo la detecci\'on temprana de casos cr\'iticos (salud mental, acoso, riesgo f\'isico). La soluci\'on transforma tres canales fragmentados y obsoletos en una plataforma \'unica disponible 24/7, con dashboard institucional, alertas en tiempo real y asistente conversacional basado en RAG sobre el reglamento universitario.
+\end{tcolorbox}
+
+\tableofcontents
+\newpage
+
+% ============================================
+\section{Contexto Institucional}
+% ============================================
+
+La universidad es una instituci\'on \textbf{privada} de educaci\'on superior con m\'as de \textbf{8,000 estudiantes activos} distribuidos en modalidad presencial y semi-presencial. La instituci\'on opera con \textbf{tres sedes} y cinco facultades (Ingenier\'ia, Ciencias de la Salud, Humanidades, Ciencias Econ\'omicas y Ciencias B\'asicas) y cuenta con aproximadamente \textbf{1,200 colaboradores} entre docentes de tiempo completo, medio tiempo, personal administrativo y de servicios generales.
+
+La poblaci\'on universitaria es diversa: estudiantes de primer a \'ultimo a\~no, posgrado, educaci\'on continua, docentes investigadores, personal de apoyo, proveedores y visitantes. Cada uno de estos actores enfrenta en alg\'un momento situaciones que requieren ser reportadas a la instituci\'on: desde una falla en el aire acondicionado de un sal\'on, hasta un caso de acoso, una preocupaci\'on de salud mental o una sugerencia para mejorar un proceso acad\'emico.
+
+La universidad cuenta con un departamento de \textbf{Bienestar Universitario} encargado de gestionar la mayor\'ia de estos reportes, junto con la Direcci\'on Acad\'emica (para temas curriculares), Servicios Generales (infraestructura) y la Oficina de Recursos Humanos (clima laboral).
+
+% ============================================
+\section{Problem\'atica Identificada}
+% ============================================
+
+En la actualidad, la universidad gestiona los reportes y quejas de la comunidad a trav\'es de \textbf{tres canales completamente descoordinados y tecnol\'ogicamente desfasados}:
+
+\begin{enumerate}[leftmargin=*, label=\textbf{\arabic*.}]
+    \item \textbf{Formulario de Evaluaci\'on Docente}: encuesta semestral administrada en l\'inea pero con un sistema legacy sin mantenimiento desde 2022. Solo eval\'ua aspectos pedag\'ogicos y no canaliza quejas urgentes.
+    
+    \item \textbf{Formulario Institucional de Quejas}: hospedado en una plataforma de terceros con un dise\~no de 2018, sin mantenimiento activo, con tasa de abandono superior al 70\% seg\'un datos internos del \'ultimo a\~no.
+    
+    \item \textbf{Formulario de Personal}: una planilla Excel compartida por correo electr\'onico, sin trazabilidad, sin seguimiento y con versi\'on \'unica que se sobrescribe constantemente.
+\end{enumerate}
+
+Esta fragmentaci\'on genera un conjunto de problemas estructurales graves:
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{P\'erdida sistem\'atica de casos}: los reportes se pierden en bandejas de correo, se duplican o nunca llegan a quien corresponde.
+    \item \textbf{Tiempos de respuesta excesivos}: entre 3 y 7 d\'ias h\'abiles, con casos urgentes que esperan d\'ias.
+    \item \textbf{Imposibilidad de identificar patrones}: la informaci\'on no se cruza entre canales.
+    \item \textbf{Ausencia de detecci\'on temprana}: casos de salud mental, acoso o riesgo f\'isico se mezclan con reportes administrativos sin diferenciaci\'on.
+    \item \textbf{Decisiones sin datos}: las autoridades universitarias no tienen visibilidad agregada para tomar decisiones estrat\'egicas.
+    \item \textbf{Clasificaci\'on manual}: el equipo de bienestar invierte 4 a 6 horas semanales en leer y clasificar reportes a mano.
+    \item \textbf{Falta de retroalimentaci\'on}: el estudiante que reporta no recibe confirmaci\'on ni seguimiento, lo que erosiona la confianza institucional.
+\end{itemize}
+
+\begin{tcolorbox}[colback=red!5!white, colframe=critical, title=\textbf{El problema m\'as grave}]
+Seg\'un entrevistas informales con Bienestar Universitario, en el \'ultimo semestre \textbf{al menos 3 casos potencialmente cr\'iticos} (dos de salud mental y uno de acoso) no fueron atendidos con la prioridad adecuada porque llegaron a trav\'es del canal equivocado y fueron clasificados como ``administrativos'' durante varios d\'ias.
+\end{tcolorbox}
+
+% ============================================
+\section{Personas Afectadas}
+% ============================================
+
+La problem\'atica afecta a cuatro perfiles claramente diferenciados dentro de la comunidad universitaria:
+
+\begin{longtable}{|p{3.5cm}|p{3.5cm}|p{5.5cm}|p{2.5cm}|}
+\hline
+\rowcolor{primary!20}
+\textbf{Persona} & \textbf{Rol} & \textbf{Dolor principal} & \textbf{Frecuencia} \\
+\hline
+\endhead
+
+\textbf{Estudiante universitario} 
+& Reporta queja 
+& No recibe seguimiento, abandona el proceso por desconfianza, no sabe si su caso fue atendido. 
+& 2--3 quejas por semana \\
+\hline
+
+\textbf{Coordinador de Bienestar} 
+& Recibe casos cr\'iticos 
+& Detecta manualmente, sin alertas tempranas, invierte horas clasificando, riesgo de pasar por alto casos urgentes. 
+& 5--10 casos por semana \\
+\hline
+
+\textbf{Director Acad\'emico} 
+& Toma decisiones estrat\'egicas 
+& No tiene visibilidad de patrones agregados, basa decisiones en percepciones, no en datos. 
+& An\'alisis mensual \\
+\hline
+
+\textbf{Personal administrativo} 
+& Resuelve casos operativos 
+& Clasifica manualmente sin criterios claros, no tiene SLAs, trabaja con informaci\'on incompleta. 
+& 20+ casos por semana \\
+\hline
+\end{longtable}
+
+\subsection{Persona primaria: el estudiante}
+
+El caso del estudiante es particularmente doloroso. Un estudiante que vive una situaci\'on dif\'icil (problema con un docente, caso de acoso, falla reiterada de infraestructura) enfrenta un proceso:
+
+\begin{enumerate}[leftmargin=*]
+    \item Debe descubrir \textit{cu\'al} de los tres canales usar.
+    \item Debe completar un formulario largo y poco intuitivo.
+    \item No recibe confirmaci\'on de recepci\'on.
+    \item Espera d\'ias sin saber nada.
+    \item En muchos casos, simplemente abandona.
+\end{enumerate}
+
+El resultado es que muchos estudiantes \textbf{dejan de reportar} situaciones que la universidad necesita conocer.
+
+% ============================================
+\section{An\'alisis de la Soluci\'on Actual y sus Limitaciones}
+% ============================================
+
+Los tres canales actuales comparten limitaciones estructurales que los hacen inadecuados para la complejidad de la problem\'atica:
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Falta de trazabilidad}: ning\'un canal permite al estudiante saber el estado de su queja (\textit{recibida, en revisi\'on, en gesti\'on, resuelta}).
+    \item \textbf{Ausencia de SLA}: no hay compromiso de tiempo de respuesta ni escalamiento autom\'atico.
+    \item \textbf{Procesamiento 100\% manual}: la clasificaci\'on por categor\'ia y prioridad se hace a mano por personal de bienestar.
+    \item \textbf{Datos aislados}: imposible cruzar informaci\'on entre canales o detectar patrones entre facultades.
+    \item \textbf{Riesgo cr\'itico oculto}: casos urgentes (salud mental, violencia, acoso) se mezclan con administrativos sin diferenciaci\'on temprana.
+    \item \textbf{Sin medici\'on}: no hay m\'etricas de satisfacci\'on, tiempo de resoluci\'on ni reincidencia.
+\end{itemize}
+
+Esta situaci\'on, documentada internamente y percibida por la comunidad, justifica la inversi\'on en una soluci\'on tecnol\'ogica moderna.
+
+% ============================================
+\section{Soluci\'on Propuesta: Sentinel AcademIA}
+% ============================================
+
+\textbf{Sentinel AcademIA} es una plataforma \'unica donde la comunidad universitaria registra quejas \textbf{las 24 horas, los 7 d\'ias de la semana}, mediante texto, im\'agenes o documentos adjuntos. Un pipeline as\'incrono basado en eventos procesa cada queja con \textbf{IA generativa} y produce un an\'alisis estructurado en menos de un minuto.
+
+\subsection{Flujo de la soluci\'on}
+
+\begin{enumerate}[leftmargin=*, label=\textbf{Paso \arabic*:}]
+    \item El usuario (estudiante, docente o personal) env\'ia una queja desde cualquier dispositivo.
+    \item La queja se almacena en una base de datos serverless y se encola para procesamiento as\'incrono.
+    \item Un modelo de lenguaje (LLM) analiza el contenido y extrae: categor\'ia, criticidad, sentimiento, entidades mencionadas, temas clave y acci\'on sugerida.
+    \item Si la criticidad es \textbf{CR\'ITICA}, se dispara una alerta inmediata al equipo de bienestar universitario.
+    \item El sistema almacena el an\'alisis y notifica al usuario con un identificador de seguimiento.
+    \item Las autoridades acceden a un dashboard con m\'etricas agregadas y tendencias.
+    \item Un asistente conversacional responde preguntas sobre el reglamento y estado de las quejas usando RAG (Retrieval-Augmented Generation).
+\end{enumerate}
+
+\subsection{Caracter\'isticas t\'ecnicas diferenciadoras}
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Arquitectura serverless}: AWS Lambda + SQS + EventBridge + DynamoDB, sin servidores que mantener.
+    \item \textbf{Multi-nube}: AWS Academy para orquestaci\'on y Oracle Cloud Infrastructure (OCI) para el modelo de IA generativa, demostrando una integraci\'on real entre proveedores.
+    \item \textbf{Resiliencia}: circuit breaker, fallback autom\'atico entre modelos (Cohere Command R $\rightarrow$ Llama 3.1 $\rightarrow$ Command R+), rate limiting, retry con backoff exponencial.
+    \item \textbf{Privacidad}: anonimizaci\'on autom\'atica de personas mencionadas en el an\'alisis.
+    \item \textbf{Observabilidad}: CloudWatch + X-Ray para trazabilidad end-to-end, Langfuse para tracing del LLM.
+    \item \textbf{Frontend moderno}: Vue 3 + TypeScript + Vite, desplegado en Vercel, accesible y responsive.
+\end{itemize}
+
+\begin{tcolorbox}[colback=primary!5!white, colframe=primary, title=\textbf{Diferenciador clave}]
+El sistema es \textbf{as\'incrono end-to-end}: el usuario recibe confirmaci\'on inmediata (202 Accepted) con un identificador \'unico, y el an\'alisis profundo se completa en segundo plano. Esto permite escalar a miles de quejas simult\'aneas sin afectar la experiencia del usuario.
+\end{tcolorbox}
+
+% ============================================
+\section{Impacto Esperado}
+% ============================================
+
+La soluci\'on propuesta genera un impacto cuantificable y medible en seis dimensiones clave:
+
+\begin{longtable}{|p{5cm}|p{4cm}|p{4cm}|p{2cm}|}
+\hline
+\rowcolor{primary!20}
+\textbf{KPI} & \textbf{Situaci\'on actual} & \textbf{Meta con Sentinel} & \textbf{Mejora} \\
+\hline
+\endhead
+
+Tiempo de primera respuesta & 3--7 d\'ias & $<$ 30 minutos & \textbf{--95\%} \\
+\hline
+
+Detecci\'on de casos cr\'iticos & Manual, 24--72 h & Autom\'atica, $<$ 1 min & \textbf{--99\%} \\
+\hline
+
+Cobertura de canales & 3 fragmentados & 1 unificado & \textbf{+100\%} \\
+\hline
+
+Casos clasificados autom\'aticamente & 0\% & 100\% & \textbf{+100\%} \\
+\hline
+
+Visibilidad institucional & Por canal, aislada & Dashboard 360$^\circ$ & \textbf{Nueva} \\
+\hline
+
+Satisfacci\'on del estudiante (NPS) & Sin medir & $>$ 40 & \textbf{Nuevo} \\
+\hline
+\end{longtable}
+
+\subsection{Ahorros estimados}
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{6 horas semanales} de clasificaci\'on manual liberadas para el equipo de bienestar.
+    \item \textbf{\textasciitilde\$5 USD/d\'ia} en costos cloud totales (dentro de los cr\'editos disponibles de AWS Academy y OCI).
+    \item \textbf{Reducci\'on estimada del 40\%} en casos escalados por mal manejo inicial.
+    \item \textbf{Detecci\'on temprana} de al menos 5--10 casos cr\'iticos anuales que actualmente se pierden o se atienden tarde.
+\end{itemize}
+
+% ============================================
+\section{Viabilidad T\'ecnica}
+% ============================================
+
+El proyecto es \textbf{t\'ecnicamente viable} en el tiempo y con los recursos disponibles para la hackat\'on:
+
+\subsection{Recursos cloud}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{AWS Academy}: \$50 USD de cr\'editos disponibles, m\'as que suficientes para Lambda, SQS, EventBridge, DynamoDB y S3.
+    \item \textbf{Oracle Cloud Infrastructure}: cr\'editos Academy disponibles para OCI Generative AI (Cohere Command R y Llama 3.1).
+    \item \textbf{Vercel}: free tier para el frontend Vue 3, con 100 GB/mes de bandwidth.
+\end{itemize}
+
+\subsection{Stack tecnol\'ogico}
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Backend}: TypeScript estricto + AWS Lambda + DynamoDB + SQS + EventBridge.
+    \item \textbf{Frontend}: Vue 3 (Composition API) + Vite + Pinia + Vue Router 4 + CSS nativo.
+    \item \textbf{LLM}: Cohere Command R (primario, econ\'omico) + Meta Llama 3.1 70B (fallback) ejecut\'andose en OCI.
+    \item \textbf{IaC}: AWS SAM para AWS + oci-cli para Oracle.
+    \item \textbf{CI/CD}: GitHub Actions con typecheck, lint, tests y deploy automatizado.
+    \item \textbf{Observabilidad}: CloudWatch + X-Ray + Langfuse.
+\end{itemize}
+
+\subsection{Herramientas de desarrollo}
+
+El equipo utiliza \textbf{M3 de MiniMax} como asistente de desarrollo (planificaci\'on, generaci\'on de c\'odigo, revisi\'on, prompts para LLM) y \textbf{Cohere Command R} como LLM de producci\'on por su excelente relaci\'on calidad/costo en tareas de extracci\'on estructurada y clasificaci\'on.
+
+\subsection{Costos estimados totales}
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{AWS Academy}: $\leq$ \$5 USD (todo dentro de los \$50 disponibles).
+    \item \textbf{Oracle OCI}: $\leq$ \$2 USD (todo dentro de los cr\'editos Academy).
+    \item \textbf{Vercel}: \$0 (free tier).
+    \item \textbf{Total hackat\'on}: $\leq$ \$7 USD, muy por debajo de los cr\'editos disponibles.
+\end{itemize}
+
+% ============================================
+\section{Conclusiones}
+% ============================================
+
+Sentinel AcademIA \textbf{no es una mejora incremental} al sistema actual de gesti\'on de quejas: es una \textbf{transformaci\'on} de c\'omo la universidad escucha y responde a su comunidad. Al centralizar los tres canales fragmentados, automatizar el an\'alisis con IA generativa y priorizar de manera inteligente los casos cr\'iticos, la instituci\'on pasa de un modelo \textbf{reactivo y manual} a uno \textbf{proactivo y automatizado} donde cada queja se atiende en el tiempo adecuado, especialmente las que m\'as afectan a las personas.
+
+\textbf{Viabilidad t\'ecnica demostrada}: stack maduro, recursos disponibles, equipo con experiencia y cronograma realista.
+
+\textbf{Impacto cuantificable}: reducci\'on del 95\% en tiempo de respuesta, detecci\'on de casos cr\'iticos en menos de 1 minuto, ahorro de 6 horas semanales al equipo de bienestar.
+
+\textbf{Diferenciador competitivo}: arquitectura multi-nube real (AWS + OCI), resiliencia con fallback entre modelos LLM, y procesamiento as\'incrono end-to-end.
+
+El siguiente paso es la \textbf{arquitectura detallada de la soluci\'on}, presentada en el documento Criterio 2, donde se especifican los componentes, el flujo de datos, la infraestructura y los diagramas t\'ecnicos de la plataforma.
+
+\vspace{0.5cm}
+
+\begin{center}
+\textit{``Sentinel AcademIA: porque cada queja merece ser escuchada a tiempo.''}
+\end{center}
+
+\end{document}

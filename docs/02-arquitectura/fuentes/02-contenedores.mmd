@@ -1,0 +1,73 @@
+graph TB
+    subgraph Cliente["Capa de Cliente"]
+        Web["Vue 3 SPA<br/>Vite + TypeScript + Pinia<br/>Vercel CDN"]
+    end
+
+    subgraph AWS["AWS - Region us-east-1"]
+        APIGW["API Gateway<br/>HTTP API v2"]
+
+        subgraph Lambdas["AWS Lambda - 1 por endpoint"]
+            L1["createQueja<br/>POST /api/quejas"]
+            L2["getQueja<br/>GET /api/quejas/:id"]
+            L3["listQuejas<br/>GET /api/quejas"]
+            L4["getAnalysis<br/>GET /api/quejas/:id/analysis"]
+            L5["getMetrics<br/>GET /api/dashboard/metrics"]
+            L6["chat<br/>POST /api/chat"]
+            L7["processQueja<br/>Consumer de SQS"]
+            L8["notifyStudent<br/>Consumer de SNS"]
+            L9["updateDashboard<br/>Consumer de EventBridge"]
+        end
+
+        SQS["SQS: complaints-queue<br/>+ DLQ: complaints-dlq"]
+        SNS["SNS: alerts<br/>Topic de notificaciones"]
+        EB["EventBridge<br/>Bus de eventos"]
+
+        subgraph Storage["Almacenamiento"]
+            DDB[("DynamoDB<br/>Tabla unica<br/>quejas, metricas, idempotencia")]
+            S3[("S3<br/>Archivos adjuntos")]
+        end
+
+        CW["CloudWatch<br/>Logs + Metricas + X-Ray"]
+    end
+
+    subgraph Oracle["Oracle OCI - Region us-chicago-1"]
+        GenAI["OCI Generative AI<br/>Cohere Command R<br/>+ Llama 3.1 70B"]
+        DocAI["OCI Document<br/>Understanding"]
+        Vault["OCI Vault<br/>Secretos secundarios"]
+    end
+
+    Web -->|HTTPS REST| APIGW
+    APIGW --> Lambdas
+
+    L1 -->|Put Item| DDB
+    L1 -->|Send Message| SQS
+    L7 -->|Get Item| DDB
+    L7 -->|Update Item| DDB
+    L7 -->|Download| S3
+    L7 -->|HTTPS Analyze| GenAI
+    L7 -->|HTTPS Extract| DocAI
+    L7 -->|Emit Event| EB
+    L9 -->|Update| DDB
+    L2 -->|Query GSI| DDB
+    L3 -->|Query GSI| DDB
+    L4 -->|Query| DDB
+    L5 -->|Aggregate| DDB
+    L6 -->|Analyze + RAG| GenAI
+
+    EB -->|Rule criticidad=CRITICA| SNS
+    EB -->|Rule queja.analizada| L9
+    SNS -->|Subscribe| L8
+    L8 -->|Email| Email[Email]
+
+    Lambdas -.->|Logs JSON| CW
+    Lambdas -.->|Secrets| Vault
+
+    classDef frontend fill:#3B82F6,stroke:#1E40AF,color:#fff
+    classDef aws fill:#FF9900,stroke:#C2410C,color:#fff
+    classDef oci fill:#C74634,stroke:#991B1B,color:#fff
+    classDef storage fill:#8B5CF6,stroke:#5B21B6,color:#fff
+
+    class Web frontend
+    class APIGW,Lambdas,SQS,SNS,EB,CW aws
+    class GenAI,DocAI,Vault oci
+    class DDB,S3 storage

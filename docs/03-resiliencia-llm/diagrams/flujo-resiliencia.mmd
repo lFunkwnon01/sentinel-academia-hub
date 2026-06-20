@@ -1,0 +1,58 @@
+flowchart TD
+    Start([Lambda processQueja<br/>recibe mensaje de SQS]) --> Idempotency{Check<br/>idempotencia}
+    Idempotency -->|Ya procesado| Skip[Skip - ACK mensaje]
+    Idempotency -->|Nuevo| Validate{Input valido?<br/>Zod schema}
+
+    Validate -->|No| BadRequest[Log error +<br/>ir a DLQ]
+    Validate -->|Si| GetAdj{Tiene<br/>adjuntos?}
+
+    GetAdj -->|Si PDF/Imagen| DocAI[OCI Document<br/>Understanding]
+    GetAdj -->|No| PromptBuild
+    DocAI --> ExtractText[Extraer texto]
+    ExtractText --> PromptBuild
+
+    PromptBuild[Construir prompt<br/>estructurado] --> CB1{Circuit Breaker<br/>cerrado?}
+
+    CB1 -->|Si - intentar| Cohere[Cohere Command R<br/>30s timeout]
+    CB1 -->|No - skip| Llama
+
+    Cohere --> ValidateOut1{Output valido?<br/>Zod parse}
+    ValidateOut1 -->|Si| Save[Guardar en DynamoDB<br/>status=ANALIZADA]
+    ValidateOut1 -->|No| Retry1{Reintentar?}
+    Retry1 -->|Si| Cohere
+    Retry1 -->|No, attempts>=3| DLQ[Enviar a DLQ]
+
+    Save --> EmitEvent[Emitir evento<br/>queja.analizada]
+    EmitEvent --> End([Fin - ACK SQS])
+
+    Cohere -->|Timeout/Error| LlamaCheck{Circuit cerrado?}
+    LlamaCheck -->|Si| Llama[Llama 3.1 70B<br/>30s timeout]
+    LlamaCheck -->|No| CommandPlus
+
+    Llama --> ValidateOut2{Output valido?}
+    ValidateOut2 -->|Si| Save
+    ValidateOut2 -->|No| Retry2{Attempts<3?}
+    Retry2 -->|Si| Llama
+    Retry2 -->|No| DLQ
+
+    Llama -->|Timeout/Error| CommandPlus[Cohere Command R+<br/>30s timeout]
+    CommandPlus --> ValidateOut3{Output valido?}
+    ValidateOut3 -->|Si| Save
+    ValidateOut3 -->|No| Default[Respuesta controlada<br/>fallback final]
+    Default --> Save
+
+    CommandPlus -->|Timeout/Error| Default
+
+    Save --> End
+
+    classDef startEnd fill:#10B981,stroke:#059669,color:#fff,stroke-width:2px
+    classDef decision fill:#F59E0B,stroke:#D97706,color:#fff
+    classDef error fill:#EF4444,stroke:#B91C1C,color:#fff
+    classDef model fill:#2563EB,stroke:#1E40AF,color:#fff
+    classDef success fill:#3B82F6,stroke:#1E40AF,color:#fff
+
+    class Start,End startEnd
+    class Idempotency,Validate,GetAdj,CB1,ValidateOut1,ValidateOut2,ValidateOut3,LlamaCheck,Retry1,Retry2 decision
+    class BadRequest,DLQ error
+    class Cohere,Llama,CommandPlus model
+    class Save,EmitEvent,Default,DocAI,ExtractText,PromptBuild,Skip success

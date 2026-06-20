@@ -1,0 +1,885 @@
+% ============================================================
+% TUTORIAL: OCI Generative AI — De la configuración al primer chat
+% Proyecto: Sentinel AcademIA
+% Autor: Setup Log (lFunknown)
+% Compilar: tectonic tutorial-oci-llm.tex
+% ============================================================
+
+\documentclass[11pt,a4paper,oneside]{article}
+
+% --- Paquetes base ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-nodecimaldot]{babel}
+\usepackage{lmodern}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{parskip}
+\usepackage{microtype}
+
+% --- Tablas, colores, cajas ---
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{tcolorbox}
+\tcbuselibrary{breakable,skins}
+
+% --- Código fuente con syntax highlighting ---
+\usepackage{listings}
+
+% Definir lenguaje JSON (no viene por defecto)
+\lstdefinelanguage{json}{
+  basicstyle=\ttfamily\small,
+  showstringspaces=false,
+  breaklines=true,
+  literate=
+    *{\{}{{{\{}}}{1}
+     {\}}{{{\}}}}{1}
+     {[}{{{[}}}{1}
+     {]}{{{]}}}{1}
+     {:}{{{:}}}{1}
+     {,}{{{,}}}{1},
+  string=[s]{"}{"},
+  stringstyle=\color{red!70!black},
+  morestring=[b]",
+  morecomment=[l]{:},
+  commentstyle=\color{green!50!black}
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  stringstyle=\color{red!70!black},
+  commentstyle=\color{green!50!black}\itshape,
+  numberstyle=\tiny\color{gray},
+  numbers=left,
+  numbersep=8pt,
+  frame=single,
+  framerule=0.4pt,
+  rulecolor=\color{gray!50},
+  backgroundcolor=\color{gray!5},
+  breaklines=true,
+  breakatwhitespace=true,
+  showstringspaces=false,
+  captionpos=b,
+  tabsize=2,
+  literate={á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1
+           {ñ}{{\~n}}1 {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1 {Ú}{{\'U}}1
+           {¿}{{?`}}1 {¡}{{!`}}1
+}
+
+% --- Hipervínculos ---
+\usepackage[colorlinks=true,linkcolor=blue!60!black,urlcolor=blue!60!black,citecolor=blue!60!black]{hyperref}
+
+% --- Encabezados ---
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textsc{Sentinel AcademIA}}
+\fancyhead[R]{\small Tutorial OCI LLM}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% --- Colores personalizados ---
+\definecolor{okgreen}{RGB}{40,140,60}
+\definecolor{errred}{RGB}{200,50,50}
+\definecolor{warnorange}{RGB}{220,130,30}
+\definecolor{infoblue}{RGB}{30,90,180}
+\definecolor{codebg}{RGB}{245,245,245}
+
+% --- Comandos personalizados ---
+\newcommand{\cmd}[1]{\texttt{\small #1}}
+\newcommand{\filename}[1]{\texttt{\small #1}}
+\newcommand{\ociurl}{https://docs.oracle.com/en-us/iaas/Content/generative-ai/}
+\newcommand{\ok}{\textcolor{okgreen}{\textbf{\checkmark}}}
+\newcommand{\err}{\textcolor{errred}{\textbf{\ding{55}}}}
+\newcommand{\warn}{\textcolor{warnorange}{\textbf{\textasciitilde}}}
+
+% --- Metadatos ---
+\title{\Huge\textbf{OCI Generative AI} \\[0.3em]
+       \Large De la configuración al primer chat \\[0.5em]
+       \normalsize Tutorial práctico paso a paso}
+\author{Proyecto Sentinel AcademIA \\ \small lFunknown}
+\date{\today}
+
+% ============================================================
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+
+\begin{tcolorbox}[colback=blue!5!white,colframe=infoblue,title={\textbf{¿Qué aprenderás en este tutorial?}}]
+Este documento es el \textbf{log de aprendizaje} completo de cómo configurar y usar OCI Generative AI Inference desde tu terminal Linux. Está pensado para que lo leas y lo practiques tú mismo, replicando los pasos en tu propia cuenta.
+
+\textbf{Lo que cubrimos:}
+\begin{itemize}
+  \item Por qué el estándar moderno es \textbf{chat} (no \texttt{text})
+  \item Cómo \textbf{Cada modelo} (Cohere vs Gemini) tiene un formato distinto
+  \item La diferencia entre \textbf{OCID del modelo} y \textbf{alias} (y por qué importa)
+  \item Errores reales que encontramos y cómo resolverlos
+  \item SDK Python \textbf{y} CLI: diferencias, cuándo usar cada uno
+  \item Ejercicios prácticos al final
+\end{itemize}
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=warnorange!5!white,colframe=warnorange,title={\textbf{Disclaimer: Oracle + IA cambian constantemente}}]
+OCI Generative AI es un servicio \textbf{en evolución rápida}. Lo que era verdad en enero puede no serlo en junio:
+
+\begin{itemize}
+  \item Modelos nuevos aparecen cada mes (Llama 4, Grok 4, Gemini 2.5\ldots)
+  \item Alias como \texttt{cohere.command-latest} pueden \textbf{redirigir} a otro modelo
+  \item APIs deprecadas (\texttt{generate-text} $\rightarrow$ \texttt{chat})
+  \item Regiones se expanden, OCIDs cambian de formato
+\end{itemize}
+
+\textbf{Lección:} para producción, prefiere \textbf{OCID} sobre \textbf{alias}. Para aprender, los alias est\'an bien.
+\end{tcolorbox}
+
+\vspace{1em}
+
+% ============================================================
+\section{Introducción: el cambio de paradigma \texttt{generate-text} $\rightarrow$ \texttt{chat}}
+% ============================================================
+
+OCI Generative AI ofrece dos grandes categorías de operaciones:
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Operación} & \textbf{Sustituye} & \textbf{Cuándo usar} \\
+\midrule
+\rowcolor{gray!10}
+\texttt{generate-text} & (legacy) & Modelos viejos, deprecated \\
+\texttt{chat} & \textbf{ESTÁNDAR} & \textbf{Todo modelo nuevo} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{¿Por qué \texttt{chat} y no \texttt{text}?}
+
+\begin{itemize}
+  \item \textbf{Historial}: \texttt{chat} mantiene contexto conversacional (lista de mensajes con roles)
+  \item \textbf{Multimodalidad}: \texttt{chat} acepta imágenes, archivos, audio (en modelos que lo soportan)
+  \item \textbf{Tool calling}: \texttt{chat} permite que el modelo invoque funciones externas
+  \item \textbf{RAG nativo}: \texttt{chat} integra búsqueda en bases de conocimiento Oracle
+  \item \textbf{El SDK deprecation}: cualquier intento de \texttt{generate-text} con modelos nuevos retorna:
+\end{itemize}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred]
+\textbf{Error típico:} \\
+\texttt{Model cohere.command-latest does not support TextGeneration, only Chat.}
+\end{tcolorbox}
+
+\subsection{El cambio de mentalidad: de ``prompt'' a ``messages''}
+
+El formato \texttt{text} espera un solo string:
+
+\begin{lstlisting}[language=Python,caption={generate-text (obsoleto)}]
+prompt = "Resume este articulo en una oracion"
+response = client.generate_text(
+    inference_request=inference_request_with_prompt=prompt
+)
+\end{lstlisting}
+
+El formato \texttt{chat} espera una lista de mensajes con roles:
+
+\begin{lstlisting}[language=Python,caption={chat (estándar actual)}]
+messages = [
+    {"role": "SYSTEM", "content": [{"type": "TEXT", "text": "Eres un asistente conciso."}]},
+    {"role": "USER",   "content": [{"type": "TEXT", "text": "Resume este articulo"}]},
+]
+response = client.chat(chat_request=CohereChatRequest(message="..."))
+\end{lstlisting}
+
+\textbf{Conclusión:} en este tutorial \textbf{siempre} usaremos \texttt{chat}.
+
+% ============================================================
+\section{Requisitos previos}
+% ============================================================
+
+\subsection{Herramientas a instalar}
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Herramienta} & \textbf{Versión mínima} & \textbf{Para qué} \\
+\midrule
+\texttt{oci} (CLI)        & 3.0+  & Llamadas desde terminal \\
+Python                    & 3.10+ & SDK de OCI \\
+\texttt{oci} SDK (pip)    & 2.130+& Llamadas programáticas \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsubsection{Instalación de OCI CLI (vía instalador oficial de Oracle)}
+
+El instalador de Oracle empaqueta Python 3.14 \textbf{y} la CLI juntas en un solo lugar (\texttt{\textasciitilde/lib/oracle-cli/bin/}). Esto evita contaminar tu Python del sistema.
+
+\begin{lstlisting}[language=bash,caption={Instalar OCI CLI en Linux}]
+# Descargar de https://www.oracle.com/database/technologies/instant-client/linux-x86-64-downloads.html
+# O usar pip del sistema:
+pip3 install oci-cli
+
+# Verificar
+oci --version
+\end{lstlisting}
+
+\subsubsection{Instalación del SDK de OCI para Python}
+
+\begin{lstlisting}[language=bash,caption={SDK de Python}]
+# Si usas el Python del sistema:
+pip3 install oci
+
+# Si usas el Python del instalador de Oracle (recomendado para aislar):
+~/lib/oracle-cli/bin/pip3 install oci
+\end{lstlisting}
+
+\subsection{Configurar el archivo \filename{\textasciitilde/.oci/config}}
+
+Este archivo contiene tus credenciales. \textbf{Nunca lo commitees a git.}
+
+\begin{lstlisting}[language=bash,caption={~/.oci/config (formato INI)}]
+[DEFAULT]
+user=ocid1.user.oc1..aaaaaa...       # OCID del usuario IAM
+fingerprint=33:c3:5e:8d:...         # Huella de la API key
+tenancy=ocid1.tenancy.oc1..aaaaaa... # OCID del tenancy (root)
+region=us-chicago-1                  # Región (debe coincidir con el modelo)
+key_file=/home/usuario/.oci/private_key.pem
+\end{lstlisting}
+
+\textbf{Notas importantes:}
+
+\begin{itemize}
+  \item \texttt{region} \textbf{debe ser la misma} donde desplegaste el modelo (Chicago, Frankfurt, etc.)
+  \item \texttt{key\_file} debe tener permisos \texttt{600}: \cmd{chmod 600 \textasciitilde/.oci/private\_key.pem} (el flag \texttt{\textasciitilde} se expande al HOME del usuario)
+  \item \textbf{No} incluyas \texttt{compartment-id} en el config (lo pasamos por CLI/SDK)
+  \item Si tienes varios perfiles, usa \texttt{[DEFAULT]}, \texttt{[ACADEMY]}, etc.
+\end{itemize}
+
+\subsubsection{Obtener el OCID del compartment}
+
+\begin{lstlisting}[language=bash,caption={Listar compartments}]
+oci iam compartment list --all \
+  --query 'data[?name==`SentinelAcademia`].{name:name, id:id}' \
+  --output table
+\end{lstlisting}
+
+El OCID que devuelve (empieza con \texttt{ocid1.compartment.oc1..}) es el que pasamos a las llamadas LLM.
+
+% ============================================================
+\section{Concepto clave 1: cada modelo tiene un ``request type'' distinto}
+% ============================================================
+
+Este es el primer punto clave del tutorial y la razón por la que te confundiste al principio.
+
+\begin{tcolorbox}[colback=warnorange!5!white,colframe=warnorange,title={\textbf{Regla de oro \#1}}]
+\textbf{El ``serving mode'' define qué tipo de objeto \texttt{chatRequest} debes usar.}
+\begin{itemize}
+  \item Modelo Cohere $\rightarrow$ \texttt{CohereChatRequest}
+  \item Modelo Gemini $\rightarrow$ \texttt{GenericChatRequest} con contenido en formato array
+  \item Mezclarlos $\rightarrow$ error 400 del API
+\end{itemize}
+\end{tcolorbox}
+
+\subsection{Tabla resumen: SDK Python}
+
+\begin{center}
+\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Modelo (alias)} & \textbf{Request class} & \textbf{Campo de mensaje} & \textbf{Formato} \\
+\midrule
+\rowcolor{blue!10}
+\texttt{cohere.command-latest} & \texttt{CohereChatRequest} & \texttt{message} (string) & ``Di hola'' \\
+\texttt{cohere.command-r-plus}  & \texttt{CohereChatRequest} & \texttt{message} (string) & ``Di hola'' \\
+\rowcolor{blue!10}
+\texttt{google.gemini-2.5-flash} & \texttt{GenericChatRequest} & \texttt{messages} (lista) & lista con roles \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Tabla resumen: OCI CLI}
+
+\begin{center}
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Modelo} & \textbf{Sub-comando} & \textbf{Flag del mensaje} \\
+\midrule
+\rowcolor{blue!10}
+Cohere (cualquiera) & \texttt{chat-cohere-chat-request} & \texttt{-{}-chat-request-message} (string) \\
+Gemini (cualquiera)  & \texttt{chat-generic-chat-request} & \texttt{-{}-chat-request-messages} (JSON array) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Esto NO es documentado claramente en la doc oficial de OCI.} Lo descubrimos probando.
+
+% ============================================================
+\section{Concepto clave 2: OCID del modelo vs alias (lo que m\'as nos confundi\'o)}
+% ============================================================
+
+Este es el \textbf{segundo punto clave}, igual de importante que el primero.
+
+\subsection{Las dos formas de identificar un modelo en OCI}
+
+\begin{center}
+\begin{tabular}{@{}p{3.5cm}p{5.5cm}p{5.5cm}@{}}
+\toprule
+ & \textbf{Alias (modelId)} & \textbf{OCID del modelo} \\
+\midrule
+\rowcolor{blue!10}
+\textbf{Formato} & \texttt{cohere.command-latest} & \texttt{ocid1.generativeaimodel.oc1.us-chicago-1.amaaaaaa...} \\
+\textbf{Estabilidad} & Puede cambiar (Oracle lo apunta a otro modelo) & Inmutable, identifica una versi\'on exacta \\
+\rowcolor{blue!10}
+\textbf{Para qu\'e} & Aprender, pruebas r\'apidas, documentaci\'on & Producci\'on, deploys reproducibles \\
+\textbf{D\'onde verlo} & Cualquier doc o CLI & \textbf{Solo en la Consola de OCI} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{¿Por qu\'e importa?}
+
+\textbf{Ejemplo real:} hoy \texttt{cohere.command-latest} apunta a Command R (ago-2024). Ma\~nana Oracle podr\'ia actualizarlo a Command R2 (2026) sin avisarte. Tu c\'odigo se comporta diferente sin que hayas tocado nada.
+
+Con el OCID del modelo, eso \textbf{no pasa}: est\'as pinneado a esa versi\'on exacta para siempre.
+
+
+
+El campo \texttt{modelId} dentro de \texttt{-{}-serving-mode} acepta \textbf{los dos} formatos:
+
+\begin{lstlisting}[language=bash,caption={Misma llamada, dos formas de identificar el modelo}]
+# Con alias
+--serving-mode '{"modelId":"cohere.command-latest","servingType":"ON_DEMAND"}'
+
+# Con OCID
+--serving-mode '{"modelId":"ocid1.generativeaimodel.oc1.us-chicago-1.amaaaaaa...","servingType":"ON_DEMAND"}'
+\end{lstlisting}
+
+El servidor de OCI resuelve ambos al mismo modelo f\'isico.
+
+% ============================================================
+\section{C\'omo obtener el OCID de un modelo pre-built}
+% ============================================================
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,title={\textbf{Importante}}]
+\textbf{La CLI de OCI no lista los modelos pre-built directamente.} Los OCIDs solo se pueden obtener desde la \textbf{Consola Web de OCI}.
+\end{tcolorbox}
+
+\subsection{Paso a paso en la Consola}
+
+\begin{enumerate}
+  \item Abre \url{https://cloud.oracle.com/}
+  \item Men\'u $\rightarrow$ \textbf{Analytics \& AI} $\rightarrow$ \textbf{Generative AI} $\rightarrow$ \textbf{Models}
+  \item Ver\'as una tabla con todos los modelos disponibles en tu regi\'on
+  \item Cada fila tiene una columna \textbf{OCID} que empieza con \texttt{ocid1.generativeaimodel.oc1..}
+  \item Copia el OCID del modelo que quieras (ej. \texttt{cohere.command-latest})
+\end{enumerate}
+
+\subsection{Verificaci\'on: ¿el OCID es correcto?}
+
+Una vez que tienes el OCID, pr\'uebalo:
+
+\begin{lstlisting}[language=bash,caption={Verificar que el OCID responde}]
+# Reemplaza <OCID> por el que copiaste
+oci generative-ai-inference chat-result \
+  chat-cohere-chat-request \
+  -c "$COMPARTMENT_OCID" \
+  --serving-mode '{"modelId":"<OCID>","servingType":"ON_DEMAND"}' \
+  --chat-request-message "Di hola" \
+  --chat-request-max-tokens 20
+\end{lstlisting}
+
+Si devuelve texto $\rightarrow$ OCID v\'alido. Si devuelve 404 $\rightarrow$ revisa que sea de la misma regi\'on.
+
+% ============================================================
+\section{Concepto clave 3: estrategia de estabilidad para producci\'on}
+% ============================================================
+
+\begin{tcolorbox}[colback=okgreen!5!white,colframe=okgreen,title={\textbf{Regla de oro \#2}}]
+Para \textbf{desarrollo y aprendizaje}: usa \textbf{alias} (m\'as corto, m\'as legible). \\
+Para \textbf{producci\'on}: usa \textbf{OCID} (estable, reproducible).
+\end{tcolorbox}
+
+\subsection{Pattern recomendado en c\'odigo}
+
+\begin{lstlisting}[language=Python,caption={src/services/llm\_client.py — versi\'on con OCID}]
+import os
+import oci
+from oci.generative_ai_inference import models as m
+
+# OCID pinneado (tomado de la Consola de OCI una sola vez)
+COHERE_OCID = os.environ["COHERE_MODEL_OCID"]
+COMPARTMENT_OCID = os.environ["COMPARTMENT_OCID"]
+
+def chat(prompt: str) -> str:
+    config = oci.config.from_file("~/.oci/config", "DEFAULT")
+    client = oci.generative_ai_inference.GenerativeAiInferenceClient(
+        config, service_endpoint="https://inference.generativeai.us-chicago-1.oci.oraclecloud.com"
+    )
+    details = m.ChatDetails(
+        compartment_id=COMPARTMENT_OCID,
+        serving_mode=m.OnDemandServingMode(model_id=COHERE_OCID),  # OCID, no alias
+        chat_request=m.CohereChatRequest(message=prompt, max_tokens=500, temperature=0.3),
+    )
+    return client.chat(details).data.chat_response.text
+\end{lstlisting}
+
+\subsection{Alias vs OCID: cu\'ando rotar}
+
+\begin{itemize}
+  \item \textbf{Cambias OCID}: cuando \emph{t\'u} decides actualizar a un modelo nuevo (testeo, A/B)
+  \item \textbf{Cambias alias}: cuando Oracle anuncia una deprecation del alias
+  \item \textbf{Nunca cambias en runtime}: el OCID debe ser constante durante toda la vida del deploy
+\end{itemize}
+
+% ============================================================
+\section{Guía 1: Cohere Command con Python SDK}
+% ============================================================
+
+\subsection{Código funcional (verificado) — dos versiones}
+
+\subsubsection{Versi\'on A: con alias (para aprender)}
+
+\begin{lstlisting}[language=Python,caption={test\_cohere\_chat.py — con alias}]
+import oci
+from oci.generative_ai_inference import models as m
+
+config = oci.config.from_file("~/.oci/config", "DEFAULT")
+client = oci.generative_ai_inference.GenerativeAiInferenceClient(
+    config, service_endpoint="https://inference.generativeai.us-chicago-1.oci.oraclecloud.com"
+)
+
+chat_request = m.CohereChatRequest(
+    message="Explica qu\'e es Python en una sola frase",
+    max_tokens=100,
+    temperature=0.3,
+    is_stream=False,
+)
+
+chat_details = m.ChatDetails(
+    compartment_id=config["tenancy"],
+    serving_mode=m.OnDemandServingMode(model_id="cohere.command-latest"),  # alias
+    chat_request=chat_request,
+)
+
+response = client.chat(chat_details)
+print(response.data.chat_response.text)
+\end{lstlisting}
+
+\subsubsection{Versi\'on B: con OCID (para producci\'on)}
+
+\begin{lstlisting}[language=Python,caption={test\_cohere\_chat.py — con OCID}]
+import oci
+import os
+from oci.generative_ai_inference import models as m
+
+# OCID copiado UNA VEZ desde la Consola de OCI
+COHERE_OCID = os.environ["COHERE_MODEL_OCID"]
+
+config = oci.config.from_file("~/.oci/config", "DEFAULT")
+client = oci.generative_ai_inference.GenerativeAiInferenceClient(
+    config, service_endpoint="https://inference.generativeai.us-chicago-1.oci.oraclecloud.com"
+)
+
+chat_request = m.CohereChatRequest(
+    message="Explica qu\'e es Python en una sola frase",
+    max_tokens=100,
+    temperature=0.3,
+    is_stream=False,
+)
+
+chat_details = m.ChatDetails(
+    compartment_id=config["tenancy"],
+    serving_mode=m.OnDemandServingMode(model_id=COHERE_OCID),  # OCID
+    chat_request=chat_request,
+)
+
+response = client.chat(chat_details)
+print(response.data.chat_response.text)
+\end{lstlisting}
+
+\subsection{Anatomía de la respuesta}
+
+\begin{lstlisting}[language=Python,caption={Inspeccionar la respuesta completa}]
+response.data  # -> ChatResponse
+#   .chat_response -> CohereChatResponse
+#       .text              -> "Python es un lenguaje..."
+#       .finish_reason     -> "COMPLETE" | "MAX_TOKENS" | "ERROR"
+#       .usage             -> {prompt_tokens, completion_tokens, total_tokens}
+#   .model_id         -> "cohere.command-latest"
+#   .model_version    -> "1.7"
+\end{lstlisting}
+
+\subsection{Errores comunes con Cohere}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable]
+\textbf{Error 1:} ``\texttt{Unrecognized keyword arguments: text}'' \\
+\textbf{Causa:} Usaste \texttt{CohereChatRequest(text="...")} en vez de \texttt{message="..."}. \\
+\textbf{Solución:} Cohere v1 usa \texttt{message} (singular, string), no \texttt{text}.
+
+\vspace{0.5em}
+\textbf{Error 2:} ``\texttt{Model does not support TextGeneration, only Chat}'' \\
+\textbf{Causa:} Intentaste usar \texttt{client.generate\_text()} con un modelo Cohere nuevo. \\
+\textbf{Solución:} Usa \texttt{client.chat()} siempre.
+
+\vspace{0.5em}
+\textbf{Error 3:} ``\texttt{Compartment ID must be provided}'' \\
+\textbf{Causa:} Pasaste \texttt{compartment\_id} como string vacío o \texttt{None}. \\
+\textbf{Solución:} Usa el OCID completo: \texttt{ocid1.compartment.oc1..aaaaaa...}
+\end{tcolorbox}
+
+% ============================================================
+\section{Guía 2: Cohere Command con CLI de OCI}
+% ============================================================
+
+\subsection{Comando funcional (verificado) — dos versiones}
+
+\subsubsection{Versi\'on A: con alias}
+
+\begin{lstlisting}[language=bash,caption={Test Cohere CLI con alias}]
+COMPARTMENT_OCID="ocid1.compartment.oc1..aaaaaaaa4vvf5a7lznbrfxporgxgmkr3mdanyktzsaosbwqc2urrq4pwwmzq"
+
+oci generative-ai-inference chat-result \
+  chat-cohere-chat-request \
+  -c "$COMPARTMENT_OCID" \
+  --serving-mode '{"modelId":"cohere.command-latest","servingType":"ON_DEMAND"}' \
+  --chat-request-message "Di hola en una sola frase" \
+  --chat-request-max-tokens 30 \
+  --chat-request-temperature 0
+\end{lstlisting}
+
+\subsubsection{Versi\'on B: con OCID (recomendado para producci\'on)}
+
+\begin{lstlisting}[language=bash,caption={Test Cohere CLI con OCID}]
+# Variables de entorno (poner en ~/.bashrc)
+export COMPARTMENT_OCID="ocid1.compartment.oc1..aaaaaaaa4vvf5a7lznbrfxporgxgmkr3mdanyktzsaosbwqc2urrq4pwwmzq"
+export COHERE_MODEL_OCID="ocid1.generativeaimodel.oc1.us-chicago-1.amaaaaaaXXXXX..."  # <- de la Consola
+
+oci generative-ai-inference chat-result \
+  chat-cohere-chat-request \
+  -c "$COMPARTMENT_OCID" \
+  --serving-mode "{\"modelId\":\"$COHERE_MODEL_OCID\",\"servingType\":\"ON_DEMAND\"}" \
+  --chat-request-message "Di hola en una sola frase" \
+  --chat-request-max-tokens 30 \
+  --chat-request-temperature 0
+\end{lstlisting}
+
+\subsubsection{Atajo: alias de shell}
+
+Para no escribir todo el tiempo, crea este alias en tu \texttt{\textasciitilde/.bashrc}:
+
+\begin{lstlisting}[language=bash,caption={\textasciitilde/.bashrc}]
+# Requiere: COMPARTMENT_OCID y COHERE_MODEL_OCID ya exportadas
+alias ocichat='oci generative-ai-inference chat-result chat-cohere-chat-request \
+  -c "$COMPARTMENT_OCID" \
+  --serving-mode "{\"modelId\":\"$COHERE_MODEL_OCID\",\"servingType\":\"ON_DEMAND\"}"'
+
+# Uso:
+ocichat --chat-request-message "Di hola" --chat-request-max-tokens 30
+\end{lstlisting}
+
+\subsection{Output esperado}
+
+\begin{lstlisting}[language=json,caption={Respuesta del CLI}]
+{
+  "data": {
+    "chat-response": {
+      "api-format": "COHERE",
+      "text": "¡Hola, cómo estás?",
+      "finish-reason": "COMPLETE",
+      "usage": {
+        "prompt-tokens": 7,
+        "completion-tokens": 8,
+        "total-tokens": 15
+      }
+    },
+    "model-id": "cohere.command-latest",
+    "model-version": "1.7"
+  }
+}
+\end{lstlisting}
+
+\subsection{Anatomía de los flags}
+
+\begin{center}
+\small
+\begin{tabular}{@{}lp{9cm}@{}}
+\toprule
+\textbf{Flag} & \textbf{Qué hace} \\
+\midrule
+\rowcolor{gray!10}
+\texttt{chat-result} & Sub-comando de alto nivel (imprime resultado, no job) \\
+\texttt{chat-cohere-chat-request} & Especifica el formato del request (Cohere v1) \\
+\rowcolor{gray!10}
+\texttt{-{}-compartment-id} & OCID del compartment (no del tenancy) \\
+\texttt{-{}-serving-mode} & JSON con \texttt{modelId} y \texttt{servingType} \\
+\rowcolor{gray!10}
+\texttt{-{}-chat-request-message} & \textbf{String} con el prompt (Cohere es simple) \\
+\texttt{-{}-chat-request-max-tokens} & Límite de tokens en la respuesta \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% ============================================================
+\section{Guía 3: Gemini con CLI de OCI}
+% ============================================================
+
+\subsection{Comando funcional (verificado)}
+
+\begin{lstlisting}[language=bash,caption={Test Gemini desde terminal}]
+COMPARTMENT_OCID="ocid1.compartment.oc1..aaaaaaaa4vvf5a7lznbrfxporgxgmkr3mdanyktzsaosbwqc2urrq4pwwmzq"
+
+oci generative-ai-inference chat-result \
+  chat-generic-chat-request \
+  --compartment-id "$COMPARTMENT_OCID" \
+  --serving-mode '{"modelId":"google.gemini-2.5-flash","servingType":"ON_DEMAND"}' \
+  --chat-request-messages '[{"role":"USER","content":[{"type":"TEXT","text":"Di hola"}]}]' \
+  --chat-request-max-tokens 20
+\end{lstlisting}
+
+\subsection{¡La trampa del formato!}
+
+\begin{tcolorbox}[colback=warnorange!5!white,colframe=warnorange,title={Diferencia clave Cohere vs Gemini}]
+\textbf{Cohere CLI:} \texttt{-{}-chat-request-message} es un \textbf{string} simple.
+
+\textbf{Gemini CLI:} \texttt{-{}-chat-request-messages} es un \textbf{JSON array} con estructura anidada:
+
+\begin{lstlisting}[language=json]
+[
+  {
+    "role": "USER",
+    "content": [
+      {
+        "type": "TEXT",
+        "text": "Di hola"
+      }
+    ]
+  }
+]
+\end{lstlisting}
+
+Si pasas \texttt{"content": "Di hola"} (string plano) $\rightarrow$ 400 ``Please pass in correct format of request''.
+\end{tcolorbox}
+
+\subsection{¿Por qué Gemini usa este formato raro?}
+
+\begin{itemize}
+  \item El campo \texttt{content} es una \textbf{lista} porque Gemini soporta \textbf{multimodalidad}
+  \item Cada elemento de la lista es un \textbf{ContentPart} con \texttt{type}
+  \item Los tipos posibles son: \texttt{TEXT}, \texttt{IMAGE}, \texttt{AUDIO}, etc.
+  \item Hoy solo usamos \texttt{TEXT}, pero mañana puedes agregar imágenes
+\end{itemize}
+
+% ============================================================
+\section{Comparación lado a lado: SDK vs CLI}
+% ============================================================
+
+\subsection{Cohere Command}
+
+\begin{center}
+\begin{tabular}{@{}p{6cm}p{8cm}@{}}
+\toprule
+\textbf{Python SDK} & \textbf{CLI} \\
+\midrule
+\rowcolor{codebg}
+\texttt{m.CohereChatRequest(message="...")} & \texttt{-{}-chat-request-message "..."} \\
+\texttt{client.chat(chat\_details)} & \texttt{oci ... chat-result} \\
+\texttt{response.data.chat\_response.text} & Filtrar JSON con \texttt{jq} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Gemini}
+
+\begin{center}
+\begin{tabular}{@{}p{6cm}p{8cm}@{}}
+\toprule
+\textbf{Python SDK} & \textbf{CLI} \\
+\midrule
+\rowcolor{codebg}
+\texttt{m.GenericChatRequest(messages=[...])} & \texttt{-{}-chat-request-messages '[...]'} \\
+\texttt{m.TextContent(text="...")} & \texttt{"content":[ \{"type":"TEXT","text":"..."\} ]} \\
+\texttt{client.chat(chat\_details)} & \texttt{oci ... chat-result} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% ============================================================
+\section{Troubleshooting: errores que encontramos y cómo los resolvimos}
+% ============================================================
+
+\subsection{Catálogo completo de errores}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 1: ``No such file or directory: private\_key.pem''}]
+\textbf{Cuándo:} \texttt{oci config validate} o primera llamada. \\
+\textbf{Causa:} El \texttt{key\_file} en el config (ruta \texttt{\textasciitilde/.oci/config}) apunta a una ruta inexistente. \\
+\textbf{Solución:}
+\begin{lstlisting}[language=bash]
+ls -la ~/.oci/private_key.pem
+# Si no existe, descargar de la consola de OCI:
+# Profile -> API Keys -> Add API Key -> Download Private Key
+chmod 600 ~/.oci/private_key.pem
+\end{lstlisting}
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 2: ``Compartment ID is not valid''}]
+\textbf{Cuándo:} Primera llamada con Python. \\
+\textbf{Causa:} Pasaste el OCID entre corchetes \texttt{[ocid1...]} o con espacios. \\
+\textbf{Solución:} OCID limpio, sin corchetes:
+\begin{lstlisting}[language=bash]
+# MAL
+COMP="[ocid1.compartment.oc1..aaa]"
+# BIEN
+COMP="ocid1.compartment.oc1..aaa..."
+\end{lstlisting}
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 3: ``Entity with key cohere.command-r not found''}]
+\textbf{Cuándo:} Listar modelos o primera llamada. \\
+\textbf{Causa:} El nombre \texttt{cohere.command-r} sin sufijo de fecha no existe. \\
+\textbf{Solución:} Usar el alias \texttt{cohere.command-latest} (siempre apunta al más nuevo) o la versión con fecha \texttt{cohere.command-r-08-2024}.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 4: ``cohere.command-latest does not support TextGeneration''}]
+\textbf{Cuándo:} Usar \texttt{client.generate\_text()} con Cohere. \\
+\textbf{Causa:} \texttt{generate\_text} es para modelos viejos. \\
+\textbf{Solución:} Usar \texttt{client.chat()} con \texttt{CohereChatRequest} siempre.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 5: ``Unrecognized keyword arguments: text''}]
+\textbf{Cuándo:} Crear \texttt{CohereChatRequest}. \\
+\textbf{Causa:} Usar \texttt{text="..."} en vez de \texttt{message="..."}. \\
+\textbf{Solución:} Cohere v1 usa \texttt{message} (singular).
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 6: ``Please pass in correct format of request'' (Gemini CLI)}]
+\textbf{Cuándo:} Llamar Gemini con \texttt{content} como string. \\
+\textbf{Causa:} Gemini requiere \texttt{content} como lista de \texttt{ContentPart}. \\
+\textbf{Solución:}
+\begin{lstlisting}[language=bash]
+# MAL
+'{"role":"USER","content":"Di hola"}'
+
+# BIEN
+'{"role":"USER","content":[{"type":"TEXT","text":"Di hola"}]}'
+\end{lstlisting}
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 7: ``404 Not Found'' o timeout en llamada al API}]
+\textbf{Cuándo:} Primera llamada desde una región nueva. \\
+\textbf{Causa:} La región del \texttt{config} no coincide con la región donde está desplegado el modelo. \\
+\textbf{Solución:} Verificar con:
+\begin{lstlisting}[language=bash]
+oci iam region list --output table
+\end{lstlisting}
+y usar la misma región en \texttt{-{}-region} o en el \texttt{config}.
+\end{tcolorbox}
+
+% ============================================================
+\section{Ejercicios prácticos}
+% ============================================================
+
+Haz estos ejercicios en orden, \textbf{anotando} los errores que te salen y cómo los resuelves.
+
+\subsection{Ejercicio 1: Tu primer chat con Cohere (5 min)}
+
+\begin{enumerate}
+  \item Abre tu terminal
+  \item Exporta la variable \texttt{COMPARTMENT\_OCID} con tu OCID real
+  \item Copia y pega el comando de la sección 5.2
+  \item Verifica que el JSON de respuesta tiene \texttt{"text": "..."} con un saludo
+\end{enumerate}
+
+\textbf{Output esperado:} Un JSON con \texttt{"finish-reason": "COMPLETE"} y un texto de respuesta.
+
+\subsection{Ejercicio 2: Cambia la temperatura (5 min)}
+
+\begin{enumerate}
+  \item Re-ejecuta el comando de Cohere con \texttt{-{}-chat-request-temperature 1.5}
+  \item Compara la respuesta con la de temperatura 0
+  \item ¿Qué cambió? (Creatividad, longitud, formato)
+\end{enumerate}
+
+\subsection{Ejercicio 3: Prueba Gemini (5 min)}
+
+\begin{enumerate}
+  \item Cambia el sub-comando a \texttt{chat-generic-chat-request}
+  \item Cambia \texttt{-{}-chat-request-message} por \texttt{-{}-chat-request-messages} con el formato array
+  \item Ejecuta y compara la velocidad con Cohere
+\end{enumerate}
+
+\subsection{Ejercicio 4: Convierte el comando CLI a Python (15 min)}
+
+\begin{enumerate}
+  \item Toma el comando CLI de Cohere que ya te funciona
+  \item Trad\'{u}celo a un script Python usando \texttt{oci.generative\_ai\_inference}
+  \item Guarda el script como \filename{mi\_primer\_chat.py}
+  \item Ejec\'{u}talo y compara el output con el del CLI
+\end{enumerate}
+
+\textbf{Pista:} Usa el código de la secci\'on 4.1 (versi\'on A o B) como base.
+
+\subsection{Ejercicio 5: Inserta el script en una función reutilizable (20 min)}
+
+\begin{enumerate}
+  \item Crea \filename{src/services/llm\_client.py}
+  \item Define una función \texttt{chat(prompt: str) $\rightarrow$ str} que oculte toda la complejidad
+  \item Escribe 3 tests con \texttt{pytest} que verifiquen:
+  \begin{itemize}
+    \item Devuelve string no vacío
+    \item Falla limpiamente si el compartment OCID es inválido
+    \item Falla limpiamente si el modelo no existe
+  \end{itemize}
+\end{enumerate}
+
+\textbf{Este ejercicio es el que usaremos en Fase 1 del proyecto.}
+
+\subsection{Ejercicio 6: Migra de alias a OCID (10 min)}
+
+\begin{enumerate}
+  \item Abre la Consola de OCI y obt\'en el OCID de \texttt{cohere.command-latest}
+  \item Exporta \texttt{COHERE\_MODEL\_OCID} en tu shell
+  \item Modifica tu funci\'on \texttt{chat()} para que use \texttt{COHERE\_MODEL\_OCID} en vez del alias
+  \item Re-ejecuta los tests del ejercicio 5
+  \item \textbf{Bonus:} crea un test que verifique que el modelo es estable (mismo OCID entre 2 llamadas)
+\end{enumerate}
+
+\textbf{Este patr\'on es el que usaremos en producci\'on.}
+
+% ============================================================
+\section{Resumen: lo que tienes que recordar}
+% ============================================================
+
+\begin{tcolorbox}[colback=okgreen!5!white,colframe=okgreen,title={\textbf{Checklist de memoria}}]
+\begin{enumerate}
+  \item \textbf{Est\'andar = chat}, nunca \texttt{generate\_text}
+  \item \textbf{Cohere} $\rightarrow$ \texttt{CohereChatRequest} (string en \texttt{message})
+  \item \textbf{Gemini} $\rightarrow$ \texttt{GenericChatRequest} (lista en \texttt{messages})
+  \item \textbf{CLI Cohere} $\rightarrow$ \texttt{chat-cohere-chat-request} con string
+  \item \textbf{CLI Gemini} $\rightarrow$ \texttt{chat-generic-chat-request} con array JSON
+  \item \textbf{Regi\'on del config} = regi\'on del modelo
+  \item \textbf{Compartment OCID} va en cada llamada, no en el config
+  \item \textbf{Clave privada} con permisos 600, ubicada en \texttt{\textasciitilde/.oci/private\_key.pem}
+  \item \textbf{Alias = para aprender}, \textbf{OCID = para producci\'on}
+  \item \textbf{OCID del modelo solo en Consola}, no en CLI
+  \item \textbf{Oracle cambia}: revisa docs cada trimestre
+\end{enumerate}
+\end{tcolorbox}
+
+% ============================================================
+\section{Referencias}
+% ============================================================
+
+\begin{itemize}
+  \item \ociurl --- Documentación oficial de OCI Generative AI
+  \item \url{https://docs.oracle.com/en-us/iaas/tools/python-sdk-examples/} --- Ejemplos del SDK de Python
+  \item \url{https://www.oracle.com/artificial-intelligence/generative-ai/large-language-models/} --- Catálogo de modelos
+\end{itemize}
+
+\vspace{2em}
+\begin{center}
+\textit{Fin del tutorial. ¡Ahora a practicar!}
+\end{center}
+
+\end{document}

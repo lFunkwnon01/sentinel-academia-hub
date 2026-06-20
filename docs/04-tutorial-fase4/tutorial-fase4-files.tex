@@ -1,0 +1,789 @@
+% ============================================================
+% TUTORIAL: Fase 4 — File uploads con S3 presigned URLs
+% Proyecto: Sentinel AcademIA
+% Compilar: tectonic tutorial-fase4-files.tex
+% ============================================================
+
+\documentclass[11pt,a4paper,oneside]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-nodecimaldot]{babel}
+\usepackage{lmodern}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{parskip}
+\usepackage{microtype}
+
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{amssymb}
+\usepackage{pifont}
+\usepackage{tcolorbox}
+\tcbuselibrary{breakable,skins}
+
+\usepackage{listings}
+
+\lstdefinelanguage{yaml}{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  stringstyle=\color{red!70!black},
+  commentstyle=\color{green!50!black}\itshape,
+  morekeywords={Type,Properties,Version,Statement,Effect,Principal,Action,Resource},
+}
+
+\lstdefinelanguage{bash}{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  stringstyle=\color{red!70!black},
+  commentstyle=\color{green!50!black}\itshape,
+  morekeywords={aws,npm,cd,ls,mkdir,rm,cp,mv,export,unset,echo,cat,curl,sleep,npx,git},
+}
+
+\lstdefinelanguage{json}{
+  basicstyle=\ttfamily\small,
+  showstringspaces=false,
+  breaklines=true,
+  literate=
+    *{\{}{{{\{}}}{1}
+     {\}}{{{\}}}}{1}
+     {[}{{{[}}}{1}
+     {]}{{{]}}}{1}
+     {:}{{{:}}}{1}
+     {,}{{{,}}}{1},
+  string=[s]{"}{"},
+  stringstyle=\color{red!70!black},
+  morestring=[b]",
+}
+
+\lstdefinelanguage{typescript}{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  stringstyle=\color{red!70!black},
+  commentstyle=\color{green!50!black}\itshape,
+  morekeywords={import, export, from, const, let, var, function, async, await,
+                return, if, else, for, while, true, false, null, undefined,
+                new, this, class, extends, interface, type, public, private,
+                protected, static, readonly, void, never, any, unknown, string,
+                number, boolean, object},
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  numberstyle=\tiny\color{gray},
+  numbers=left,
+  numbersep=8pt,
+  frame=single,
+  framerule=0.4pt,
+  rulecolor=\color{gray!50},
+  backgroundcolor=\color{gray!5},
+  breaklines=true,
+  breakatwhitespace=true,
+  showstringspaces=false,
+  captionpos=b,
+  tabsize=2,
+  literate={á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1
+           {ñ}{{\~n}}1 {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1 {Ú}{{\'U}}1
+           {¿}{{?`}}1 {¡}{{!`}}1
+}
+
+\usepackage[colorlinks=true,linkcolor=blue!60!black,urlcolor=blue!60!black,citecolor=blue!60!black]{hyperref}
+
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textsc{Sentinel AcademIA}}
+\fancyhead[R]{\small Tutorial Fase 4}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\definecolor{okgreen}{RGB}{40,140,60}
+\definecolor{errred}{RGB}{200,50,50}
+\definecolor{warnorange}{RGB}{220,130,30}
+\definecolor{infoblue}{RGB}{30,90,180}
+
+\newcommand{\ok}{\textcolor{okgreen}{\textbf{\checkmark}}}
+\newcommand{\err}{\textcolor{errred}{\textbf{\ding{55}}}}
+\newcommand{\warn}{\textcolor{warnorange}{\textbf{\textasciitilde}}}
+
+\title{\Huge\textbf{Fase 4: File Uploads} \\[0.3em]
+       \Large S3 Presigned URLs + Async Processing \\[0.5em]
+       \normalsize Tutorial paso a paso}
+\author{Proyecto Sentinel AcademIA \\ \small lFunknown}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+
+\begin{tcolorbox}[colback=blue!5!white,colframe=infoblue,title={\textbf{¿Qué construimos en este tutorial?}}]
+En la \textbf{Fase 4} permitimos que los usuarios suban \textbf{archivos de evidencia} (fotos, PDFs) a sus quejas. Esto se hace con el patr\'on de \textbf{presigned URLs}:
+
+\begin{enumerate}
+  \item Cliente crea queja (POST /api/quejas) -- ya exist\'ia (Fase 1)
+  \item Cliente pide URL de upload (POST /api/quejas/\{id\}/upload-url)
+  \item API devuelve URL temporal (v\'alida 15 min)
+  \item Cliente sube el archivo \textbf{directamente a S3} (sin pasar por la API)
+  \item S3 dispara un evento que llama a \texttt{file\_processor} Lambda
+  \item Lambda actualiza la queja en DynamoDB con la URL del archivo
+\end{enumerate}
+
+\textbf{Decisiones clave}:
+\begin{itemize}
+  \item \textbf{Por qu\'e presigned URLs}: el cliente sube directo a S3, evitando saturar la API
+  \item \textbf{Por qu\'e S3 event}: desacopla el upload del procesamiento
+  \item \textbf{Qu\'e se logr\'o}: end-to-end upload funcionando (POST $\rightarrow$ URL $\rightarrow$ S3 PUT $\rightarrow$ Lambda $\rightarrow$ DynamoDB $\rightarrow$ GET con adjuntos)
+\end{itemize}
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=warnorange!5!white,colframe=warnorange,title={\textbf{Email (SES) -- no implementado en esta versi\'on}}]
+La parte de notificar por email (SES) \textbf{no se implement\'o} en esta versi\'on. El \texttt{analyze\_queja} actualiza el status a \texttt{ANALIZADA} pero no env\'ia email. Para prod: implementar \texttt{notifyByEmail} con AWS SES.
+\end{tcolorbox}
+
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{El patr\'on de presigned URLs}
+% ============================================================
+
+\subsection{¿Qu\'e es una presigned URL?}
+
+Una URL temporal que \textbf{S3 genera} y que permite a un cliente \textbf{subir archivos directamente a S3} sin tener credenciales de AWS.
+
+\textbf{Caracter\'isticas}:
+\begin{itemize}
+  \item \ok \textbf{Temporal}: expira (configurable, default 15 min)
+  \item \ok \textbf{Espec\'ifica}: solo PUT (o GET) sobre UN key espec\'ifico
+  \item \ok \textbf{Scoped}: puede limitar ContentType, ContentLength
+  \item \ok \textbf{No requiere credenciales} del cliente
+\end{itemize}
+
+\subsection{¿Por qu\'e este patr\'on?}
+
+\textbf{Alternativa naive}: el cliente env\'ia el archivo a la API, la API lo sube a S3.
+
+\begin{itemize}
+  \item \err \textbf{Problema 1}: la API recibe archivos grandes (10MB+), la Lambda tiene l\'imite de 6MB de payload (sincr\'ono) o 250MB (async)
+  \item \err \textbf{Problema 2}: desperdicia bandwidth y CPU de la Lambda
+  \item \err \textbf{Problema 3}: timeout si el upload es lento
+  \item \ok \textbf{Soluci\'on con presigned URL}: la API solo genera la URL, el cliente sube directo
+\end{itemize}
+
+\subsection{Diagrama del flujo}
+
+\begin{center}
+\begin{tabular}{ccccccc}
+\textbf{Cliente} & $\rightarrow$ & \textbf{API} & $\rightarrow$ & \textbf{S3 presigned} \\
+& & genera URL & & PUT directo \\
+\end{tabular}
+\end{center}
+
+\begin{center}
+\begin{tabular}{ccc}
+\textbf{S3} & $\rightarrow$ \textbf{file\_processor} & $\rightarrow$ \textbf{DynamoDB} \\
+evento s3:ObjectCreated & actualiza queja & guarda URL \\
+\end{tabular}
+\end{center}
+
+% ============================================================
+\section{Componente 1: S3 Bucket}
+% ============================================================
+
+\subsection{Crear el bucket en SAM}
+
+\begin{lstlisting}[language=yaml,caption={infra/template.yaml — S3 bucket}]
+FilesBucket:
+  Type: AWS::S3::Bucket
+  Properties:
+    BucketName: !Sub "sentinel-files-${Stage}-${AWS::AccountId}"
+    PublicAccessBlockConfiguration:
+      BlockPublicAcls: true
+      BlockPublicPolicy: true
+      IgnorePublicAcls: true
+      RestrictPublicBuckets: true
+    CorsConfiguration:
+      CorsRules:
+        - AllowedOrigins: ["*"]
+          AllowedMethods: [GET, PUT, POST]
+          AllowedHeaders: ["*"]
+          MaxAge: 3000
+\end{lstlisting}
+
+\textbf{Decisiones}:
+\begin{itemize}
+  \item \ok \textbf{Nombre \'unico}: incluye account ID para evitar colisiones
+  \item \ok \textbf{PublicAccessBlock: todo ON}: el bucket NO es p\'ublico
+  \item \ok \textbf{Acceso v\'ia presigned URL}: solo usuarios autorizados
+  \item \ok \textbf{CORS}: permite PUT desde el frontend
+\end{itemize}
+
+% ============================================================
+\section{Componente 2: file\_service.py (presigned URLs)}
+% ============================================================
+
+\subsection{Funci\'on principal: \texttt{generate\_presigned\_upload\_url}}
+
+\begin{lstlisting}[language=Python,caption={src/services/file\_service.py}]
+import boto3
+import re
+import uuid
+
+ALLOWED_CONTENT_TYPES = [
+    "image/jpeg", "image/png", "image/gif", "image/webp",
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "text/plain",
+]
+MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
+
+def build_s3_key(tenant_id, queja_id, filename):
+    """Pattern: tenants/{tenantId}/quejas/{quejaId}/{uuid}-{filename}"""
+    safe_filename = re.sub(r"[^a-zA-Z0-9._-]", "_", filename)
+    file_id = uuid.uuid4().hex[:12]
+    return f"tenants/{tenant_id}/quejas/{queja_id}/{file_id}-{safe_filename}"
+
+
+def generate_presigned_upload_url(
+    queja_id, tenant_id, filename, content_type, file_size=None
+):
+    settings = get_settings()
+    bucket = settings.files_bucket_resolved
+
+    # Validar content type
+    if content_type not in ALLOWED_CONTENT_TYPES:
+        raise FileError(f"Content type {content_type} not allowed")
+
+    # Validar tama\~no (si se proporcion\'o)
+    if file_size is not None and file_size > MAX_FILE_SIZE_BYTES:
+        raise FileError(f"File too large: {file_size} bytes (max {MAX_FILE_SIZE_BYTES})")
+
+    s3_key = build_s3_key(tenant_id, queja_id, filename)
+    s3 = boto3.client("s3")
+    expires_in = 900  # 15 minutos
+
+    upload_url = s3.generate_presigned_url(
+        "put_object",
+        Params={
+            "Bucket": bucket,
+            "Key": s3_key,
+            "ContentType": content_type,
+        },
+        ExpiresIn=expires_in,
+    )
+
+    return {
+        "uploadUrl": upload_url,
+        "fileKey": s3_key,
+        "fileUrl": build_s3_url(bucket, s3_key),
+        "expiresIn": expires_in,
+        "maxSize": MAX_FILE_SIZE_BYTES,
+    }
+\end{lstlisting}
+
+\textbf{Decisiones}:
+\begin{itemize}
+  \item \ok \textbf{Key pattern}: \texttt{tenants/\{tenantId\}/quejas/\{quejaId\}/...} (multi-tenant)
+  \item \ok \textbf{Sanitize filename}: solo alfanum\'erico, puntos, gui\'on
+  \item \ok \textbf{Validar ContentType}: solo PDFs, im\'agenes, docs
+  \item \ok \textbf{Validar tama\~no}: 10MB max
+  \item \ok \textbf{Expiraci\'on}: 15 min (suficiente para upload)
+\end{itemize}
+
+% ============================================================
+\section{Componente 3: upload\_url Lambda}
+% ============================================================
+
+\subsection{El handler}
+
+\begin{lstlisting}[language=Python,caption={src/handlers/upload\_url.py}]
+from pydantic import BaseModel, Field
+
+class UploadURLRequest(BaseModel):
+    filename: str = Field(min_length=1, max_length=255)
+    contentType: str = Field(min_length=1, max_length=100)
+    fileSize: int | None = Field(default=None, ge=0, le=10_485_760)
+
+@error_handler
+def lambda_handler(event, context):
+    with_correlation_id(event)
+    tenant_id = extract_tenant_id(event)
+    log.append_keys(tenant_id=tenant_id)
+
+    # Extraer quejaId del path
+    path_params = event.get("pathParameters") or {}
+    queja_id = path_params.get("quejaId") or path_params.get("id")
+    if not queja_id:
+        raise ValidationError(message="Missing quejaId in path")
+
+    # Verificar que la queja existe (multi-tenant safety)
+    dynamo = get_dynamo_client()
+    dynamo.get_queja(tenant_id=tenant_id, queja_id=queja_id)  # raises 404
+
+    # Parse + validate body
+    body = _parse_body(event)
+    req = UploadURLRequest.model_validate(body)
+
+    # Generar presigned URL
+    result = generate_presigned_upload_url(
+        queja_id=queja_id,
+        tenant_id=tenant_id,
+        filename=req.filename,
+        content_type=req.contentType,
+        file_size=req.fileSize,
+    )
+
+    return HttpResponse.ok(result)
+\end{lstlisting}
+
+\textbf{Patrones importantes}:
+\begin{itemize}
+  \item \ok \textbf{Verifica que la queja existe} antes de generar URL (404 si no)
+  \item \ok \textbf{Valida con Pydantic} (ContentType, FileSize, etc.)
+  \item \ok \textbf{tenantId del header, no del body} (seguridad)
+\end{itemize}
+
+% ============================================================
+\section{Componente 4: file\_processor Lambda (S3 event consumer)}
+% ============================================================
+
+\subsection{El handler}
+
+\begin{lstlisting}[language=Python,caption={src/handlers/file\_processor.py}]
+import re
+from typing import Any
+
+def _parse_key(s3_key):
+    """Extrae tenant_id y queja_id del S3 key."""
+    match = re.match(r"^tenants/([^/]+)/quejas/([^/]+)/", s3_key)
+    if not match:
+        return None
+    return match.group(1), match.group(2)
+
+
+def _process_record(record):
+    """Procesa un solo record de S3."""
+    bucket = record["s3"]["bucket"]["name"]
+    s3_key = record["s3"]["object"]["key"]
+
+    parsed = _parse_key(s3_key)
+    if not parsed:
+        log.warning("Could not parse S3 key")
+        return
+    tenant_id, queja_id = parsed
+
+    # Construir URL p\'ublica del archivo
+    file_url = build_s3_url(bucket, s3_key)
+
+    # Actualizar la queja con esta URL (append a adjuntos)
+    dynamo = get_dynamo_client()
+    item = dynamo.get_queja(tenant_id=tenant_id, queja_id=queja_id)
+    adjuntos = item.get("adjuntos", []) or []
+    if file_url not in adjuntos:
+        adjuntos.append(file_url)
+        dynamo.update_item(
+            pk=queja_pk(tenant_id, queja_id),
+            sk=queja_sk(queja_id),
+            updates={"adjuntos": adjuntos, "updatedAt": now_iso()},
+        )
+
+
+@error_handler
+def lambda_handler(event, context):
+    for record in event.get("Records", []):
+        try:
+            _process_record(record)
+        except Exception:
+            log.exception("Failed to process S3 record")
+    return {"statusCode": 200, "body": "OK"}
+\end{lstlisting}
+
+\textbf{Patrones}:
+\begin{itemize}
+  \item \ok \textbf{Parse S3 key}: \texttt{tenants/\{tenantId\}/quejas/\{quejaId\}/...} $\rightarrow$ extrae ambos IDs
+  \item \ok \textbf{Append, not overwrite}: si el archivo ya est\'a, no duplica
+  \item \ok \textbf{Continue on error}: si un record falla, sigue con los dem\'as
+\end{itemize}
+
+% ============================================================
+\section{Componente 5: SAM template (los Lambdas nuevos)}
+% ============================================================
+
+\subsection{Upload URL Lambda + permisos}
+
+\begin{lstlisting}[language=yaml,caption={infra/template.yaml — UploadURLFunction}]
+UploadURLFunction:
+  Type: AWS::Serverless::Function
+  Properties:
+    Role: !Ref LambdaRoleArn
+    FunctionName: !Sub "sentinel-upload-url-${Stage}"
+    CodeUri: ../src
+    Handler: handlers.upload_url.lambda_handler
+    Environment:
+      Variables:
+        DYNAMODB_TABLE: !Sub "sentinel-quejas-${Stage}"
+        FILES_BUCKET: !Ref FilesBucket
+    Events:
+      UploadApi:
+        Type: Api
+        Properties:
+          Path: /api/quejas/{quejaId}/upload-url
+          Method: POST
+          RestApiId: !Ref SentinelApi
+    Policies:
+      - S3ReadPolicy:
+          BucketName: !Ref FilesBucket
+      - Statement:
+          - Effect: Allow
+            Action: s3:PutObject
+            Resource: !Sub "arn:aws:s3:::${FilesBucket}/*"
+\end{lstlisting}
+
+\textbf{Permisos necesarios}:
+\begin{itemize}
+  \item \ok \texttt{S3ReadPolicy}: para verificar si el objeto existe (opcional)
+  \item \ok \texttt{s3:PutObject}: para generar presigned URL (necesario)
+  \item \err \textbf{No \texttt{s3:*}}: principio de menor privilegio
+\end{itemize}
+
+% ============================================================
+\section{El problema: circular dependency}
+% =========================================================%
+
+\subsection{El bug que enfrentamos}
+
+Al intentar agregar el S3 event al Lambda, obtuvimos:
+
+\begin{lstlisting}
+Error: Circular dependency between resources:
+  [SentinelApi, FileProcessorFunction, CreateQuejaFunctionCreateApiPermissionStage,
+   FilesBucket, ListQuejasFunctionListApiPermissionStage, UploadURLFunction,
+   FileProcessorFunctionS3EventPermission, ...]
+\end{lstlisting}
+
+\subsection{¿Por qu\'e?}
+
+El problema:
+\begin{itemize}
+  \item \textbf{FilesBucket} (con NotificationConfiguration) \textbf{necesita} el ARN de FileProcessorFunction
+  \item \textbf{FileProcessorFunction} \textbf{depende} de FilesBucket (para permisos)
+  \item $\rightarrow$ \textbf{dependencia circular}
+\end{itemize}
+
+\subsection{La soluci\'on: configurar S3 notification manual}
+
+En vez de usar SAM event source (que crea el notification autom\'aticamente), definimos el Lambda Permission por separado y configuramos la notificaci\'on con AWS CLI post-deploy.
+
+\begin{lstlisting}[language=yaml,caption={infra/template.yaml — permission separada}]
+FileProcessorFunction:
+  Type: AWS::Serverless::Function
+  Properties:
+    Role: !Ref LambdaRoleArn
+    FunctionName: !Sub "sentinel-file-processor-${Stage}"
+    CodeUri: ../src
+    Handler: handlers.file_processor.lambda_handler
+    Environment:
+      Variables:
+        DYNAMODB_TABLE: !Sub "sentinel-quejas-${Stage}"
+        FILES_BUCKET: !Ref FilesBucket
+    # SIN S3 event aqui (causa circular dep)
+    Policies:
+      - S3ReadPolicy:
+          BucketName: !Ref FilesBucket
+      - DynamoDBCrudPolicy:
+          TableName: !Ref QuejasTable
+
+FileProcessorS3Permission:
+  Type: AWS::Lambda::Permission
+  Properties:
+    FunctionName: !Ref FileProcessorFunction.Arn
+    Action: lambda:InvokeFunction
+    Principal: s3.amazonaws.com
+    SourceAccount: !Ref AWS::AccountId
+    SourceArn: !Sub "arn:aws:s3:::${FilesBucket}"
+\end{lstlisting}
+
+\begin{lstlisting}[language=bash,caption={Post-deploy: configurar S3 notification}]
+BUCKET=$(aws cloudformation describe-stacks \
+  --stack-name sentinel-academia-dev \
+  --query 'Stacks[0].Outputs[?OutputKey==`FilesBucketName`].OutputValue' \
+  --output text)
+
+LAMBDA_ARN=$(aws lambda get-function \
+  --function-name sentinel-file-processor-dev \
+  --query 'Configuration.FunctionArn' --output text)
+
+aws s3api put-bucket-notification-configuration \
+  --bucket "$BUCKET" \
+  --notification-configuration "{
+    \"LambdaFunctionConfigurations\": [{
+      \"Id\": \"FileProcessorTrigger\",
+      \"LambdaFunctionArn\": \"$LAMBDA_ARN\",
+      \"Events\": [\"s3:ObjectCreated:*\"],
+      \"Filter\": {
+        \"Key\": {
+          \"FilterRules\": [{\"Name\": \"prefix\", \"Value\": \"tenants/\"}]
+        }
+      }
+    }]
+  }"
+\end{lstlisting}
+
+% ============================================================
+\section{Los 2 bugs que arreglamos}
+% ============================================================
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Bug 1: \texttt{from src.handlers.\_shared} en file\_service.py}]
+\textbf{Cuando}: upload\_url Lambda retorna 500. \\
+\textbf{Causa}: \texttt{services/file\_service.py} tiene imports con \texttt{src.} prefix que ya removimos en Fase 1. \\
+\textbf{Soluci\'on}: \texttt{sed -i 's/from src\.handlers/from handlers/g'}.
+
+\begin{lstlisting}
+# MAL
+from src.handlers._shared.config import get_settings
+
+# BIEN
+from handlers._shared.config import get_settings
+\end{lstlisting}
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Bug 2: KeyError 'filename' en logger}]
+\textbf{Cuando}: log.info() falla con \texttt{KeyError: "Attempt to overwrite 'filename' in LogRecord"}. \\
+\textbf{Causa}: \texttt{filename} es palabra reservada del stdlib logging. \\
+\textbf{Soluci\'on}: usar \texttt{file\_name} en \texttt{extra=\{\}}.
+
+\begin{lstlisting}
+# MAL
+log.info("Generated", extra={"filename": req.filename})
+
+# BIEN
+log.info("Generated", extra={"file_name": req.filename})
+\end{lstlisting}
+\end{tcolorbox}
+
+% ============================================================
+\section{El test E2E (paso a paso con outputs)}
+% =========================================================%
+
+\subsection{Paso 1: Crear queja}
+
+\begin{lstlisting}[language=bash]
+curl -s -X POST "$API/api/quejas" \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: demo-utpl" \
+  -d '{"titulo":"Prueba con archivo adjunto",
+       "descripcion":"Subimos evidencia via presigned URL",
+       "categoriaDeclarada":"INFRAESTRUCTURA",
+       "anonima":false}'
+\end{lstlisting}
+
+\begin{lstlisting}[language=json,caption={Output}]
+{
+  "quejaId": "eb00100c-db86-4a04-8aab-67f3ba357d24",
+  "status": "PENDIENTE",
+  "correlationId": "...",
+  "createdAt": "2026-06-20T14:45:15..."
+}
+\end{lstlisting}
+
+\subsection{Paso 2: Pedir upload URL}
+
+\begin{lstlisting}[language=bash]
+curl -s -X POST "$API/api/quejas/eb00100c-.../upload-url" \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: demo-utpl" \
+  -d '{"filename":"test.pdf","contentType":"application/pdf","fileSize":1024}'
+\end{lstlisting}
+
+\begin{lstlisting}[language=json,caption={Output}]
+{
+  "uploadUrl": "https://sentinel-files-dev-...s3.amazonaws.com/
+    tenants/demo-utpl/quejas/eb00100c-.../c69af945dba7-test.pdf
+    ?AWSAccessKeyId=...&Signature=...&Expires=1781967798",
+  "fileKey": "tenants/demo-utpl/quejas/eb00100c-.../c69af945dba7-test.pdf",
+  "fileUrl": "https://sentinel-files-dev-...s3.us-east-1.amazonaws.com/
+    tenants/demo-utpl/quejas/eb00100c-.../c69af945dba7-test.pdf",
+  "expiresIn": 900,
+  "maxSize": 10485760
+}
+\end{lstlisting}
+
+\subsection{Paso 3: Subir archivo a S3 (directo, sin API)}
+
+\begin{lstlisting}[language=bash]
+echo "%PDF-1.4 fake" > /tmp/test.pdf
+curl -s -X PUT "$UPLOAD_URL" \
+  -H "Content-Type: application/pdf" \
+  --data-binary @/tmp/test.pdf \
+  -w "HTTP %{http_code}\n" -o /dev/null
+# Esperado: HTTP 200
+\end{lstlisting}
+
+\subsection{Paso 4: S3 event $\rightarrow$ file\_processor $\rightarrow$ DynamoDB}
+
+\begin{lstlisting}[language=bash]
+sleep 5
+curl -s "$API/api/quejas/eb00100c-..." -H "X-Tenant-ID: demo-utpl"
+\end{lstlisting}
+
+\begin{lstlisting}[language=json,caption={Output esperado}]
+{
+  "quejaId": "eb00100c-...",
+  "status": "ANALIZADA",
+  "adjuntos": [
+    "https://sentinel-files-dev-...s3.us-east-1.amazonaws.com/
+     tenants/demo-utpl/quejas/eb00100c-.../c69af945dba7-test.pdf"
+  ]
+}
+\end{lstlisting}
+
+% ============================================================
+\section{Verificaci\'on en AWS Console}
+% =========================================================%
+
+\subsection{Recursos desplegados}
+
+\begin{lstlisting}[language=bash]
+aws cloudformation describe-stack-resources \
+  --stack-name sentinel-academia-dev \
+  --query 'StackResources[?contains(ResourceType, `S3`) || contains(ResourceType, `Lambda`)].{Type:ResourceType, Name:LogicalResourceId, Status:ResourceStatus}' \
+  --output table
+\end{lstlisting}
+
+\subsection{Ver logs del file\_processor}
+
+\begin{lstlisting}[language=bash]
+aws logs tail /aws/lambda/sentinel-file-processor-dev --follow
+\end{lstlisting}
+
+Output esperado:
+\begin{lstlisting}[language=json]
+{"level":"INFO","location":"lambda_handler:65",
+ "message":"Processing 1 S3 records"}
+
+{"level":"INFO","location":"_process_record:43",
+ "message":"File uploaded: tenants/.../c69af945dba7-test.pdf"}
+
+{"level":"INFO","location":"_process_record:55",
+ "message":"Queja updated with new file URL"}
+\end{lstlisting}
+
+% ============================================================
+\section{Cat\'alogo de errores y soluciones}
+% =========================================================%
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 1: Circular dependency}]
+\textbf{Cuando}: \texttt{sam deploy} con S3 event source. \\
+\textbf{Causa}: bucket y lambda se referencian mutuamente. \\
+\textbf{Soluci\'on}: configurar notification con AWS CLI post-deploy.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 2: No module named 'src'}]
+\textbf{Cuando}: \texttt{from src.handlers.\_shared.X} en servicios. \\
+\textbf{Causa}: en Fase 1 quitamos el prefijo \texttt{src.}, pero services no se actualiz\'o. \\
+\textbf{Soluci\'on}: sed para todos los archivos en \texttt{src/services/}.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 3: KeyError 'filename' en logger}]
+\textbf{Cuando}: \texttt{log.info(extra=\{``filename'': ...\})}. \\
+\textbf{Causa}: \texttt{filename} es palabra reservada en stdlib logging. \\
+\textbf{Soluci\'on}: usar \texttt{file\_name} o \texttt{error\_message}.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 4: 403 al hacer PUT al presigned URL}]
+\textbf{Cuando}: el cliente intenta subir y recibe 403. \\
+\textbf{Causa}: la URL expir\'o o el ContentType no coincide. \\
+\textbf{Soluci\'on}: pedir nueva URL con mismo ContentType. \\
+\textbf{Para prod}: regenerar URL autom\'aticamente en el frontend.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=errred!5!white,colframe=errred,breakable,title={Error 5: file\_processor no actualiza la queja}]
+\textbf{Cuando}: el upload a S3 funciona pero la queja sigue con \texttt{adjuntos: []}. \\
+\textbf{Causa}: el Lambda no se est\'a disparando (S3 notification mal configurada). \\
+\textbf{Soluci\'on}: verificar con \texttt{aws s3api get-bucket-notification-configuration}.
+\end{tcolorbox}
+
+% ============================================================
+\section{Lo que aprendimos (resumen ejecutivo)}
+% ============================================================
+
+\begin{tcolorbox}[colback=okgreen!5!white,colframe=okgreen,title={\textbf{Checklist Fase 4}}]
+\begin{enumerate}
+  \item \textbf{Presigned URLs}: cliente sube directo a S3, no a la API
+  \item \textbf{Expiraci\'on}: 15 min (suficiente para upload)
+  \item \textbf{Key pattern multi-tenant}: \texttt{tenants/\{tid\}/quejas/\{jid\}/...}
+  \item \textbf{ContentType whitelisting}: solo PDFs, im\'agenes, docs
+  \item \textbf{Max size 10MB}: validado en backend antes de generar URL
+  \item \textbf{S3 event $\rightarrow$ file\_processor}: desacopla upload de update
+  \item \textbf{Circular dep}: usar permission manual + post-deploy CLI
+  \item \textbf{\texttt{file\_name} en logger}: \texttt{filename} es palabra reservada
+  \item \textbf{Sanitize filename}: solo alfanum\'erico, \texttt{.}, \texttt{\_}, \texttt{-}
+  \item \textbf{Append, not overwrite}: si el archivo ya est\'a, no duplica
+\end{enumerate}
+\end{tcolorbox}
+
+% ============================================================
+\section{Ejercicios para practicar}
+% ============================================================
+
+\subsection{Ejercicio 1: GET /api/quejas/\{id\}/files}
+
+Endpoint que lista los archivos adjuntos de una queja. Usa \texttt{list\_queja\_files} que ya existe en file\_service.
+
+\subsection{Ejercicio 2: DELETE /api/quejas/\{id\}/files/\{key\}}
+
+Eliminar un archivo de S3 y de los adjuntos. Requiere verificar permisos.
+
+\subsection{Ejercicio 3: Image thumbnails}
+
+Si contentType es \texttt{image/*}, generar thumbnail y guardarlo en otro key. Usa \texttt{Pillow} (pero ojo con Lambda size limit).
+
+\subsection{Ejercicio 4: Email notification (Fase 4 parte 2)}
+
+Cuando file\_processor termina, enviar email v\'ia SES al admin del tenant. Requiere SES sandbox configurado.
+
+\subsection{Ejercicio 5: Antivirus scan}
+
+Agregar un Lambda que escanea archivos subidos con ClamAV antes de marcarlos como adjuntos. Patr\'on: S3 event $\rightarrow$ scan $\rightarrow$ tag $\rightarrow$ notify.
+
+% ============================================================
+\section{Siguiente paso: Fase 5 (RAG)}
+% ============================================================
+
+En la \textbf{Fase 5} agregamos RAG (Retrieval Augmented Generation):
+
+\begin{itemize}
+  \item Documentaci\'on del reglamento universitario
+  \item Embeddings con Cohere \texttt{embed-multilingual-v3.0}
+  \item Vector store (in-memory o FAISS)
+  \item Lambda \texttt{chat} que toma una pregunta, busca docs relevantes, llama Cohere con contexto
+\end{itemize}
+
+\textbf{Tiempo estimado}: 2-3 horas.
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+Fase & Estado \\
+\midrule
+0. Setup + OCI & [OK] \\
+1. Backend Core & [OK] \\
+2. LLM integration & [OK] \\
+3. Frontend deploy & [OK] \\
+4. Files (este tutorial) & [OK] \\
+5. RAG & pr\'oximo \\
+6. Testing & pendiente \\
+7. Deploy final + demo & pendiente \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{2em}
+\begin{center}
+\textit{Fin del tutorial. \`A por la Fase 5!}
+\end{center}
+
+\end{document}

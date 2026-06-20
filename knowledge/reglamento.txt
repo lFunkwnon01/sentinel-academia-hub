@@ -1,0 +1,107 @@
+REGLAMENTO DE QUEJAS UNIVERSITARIAS - SENTINEL ACADEMIA
+======================================================
+
+Capitulo 1: Disposiciones generales
+
+Articulo 1. Toda queja presentada por un estudiante o docente de la universidad
+sera registrada en el sistema Sentinel AcademIA para su seguimiento y resolucion.
+
+Articulo 2. Las quejas pueden ser anonimas o con identificacion del reportante.
+Las quejas anonimas reciben el mismo tratamiento que las identificadas.
+
+Articulo 3. Toda queja debe incluir una descripcion detallada del problema
+con un minimo de 20 caracteres. Se recomienda adjuntar evidencia fotografica
+o documental cuando sea posible.
+
+Articulo 4. Las categorias de quejas son:
+- ACADEMICA: problemas con profesores, cursos, calificaciones, examenes
+- INFRAESTRUCTURA: problemas con aulas, edificios, equipos, servicios basicos
+- ACOSO: situaciones de acoso, hostigamiento, violencia o discriminacion
+- ADMINISTRATIVA: problemas con matriculas, tramites, pagos, sistemas
+- SALUD: temas de salud mental, fisica, bienestar estudiantil
+- OTRA: cualquier otra situacion que no encaje en las categorias anteriores
+
+Capitulo 2: Proceso de atencion
+
+Articulo 5. Toda queja sera clasificada automaticamente mediante un sistema
+de inteligencia artificial. La criticidad se evalua en una escala de:
+- BAJA: problemas menores, informativos
+- MEDIA: requieren atencion en 5 dias habiles
+- ALTA: requieren atencion en 48 horas
+- CRITICA: requieren notificacion INMEDIATA a las autoridades competentes
+
+Articulo 6. Las quejas de criticidad CRITICA son notificadas automaticamente a:
+- BIENESTAR (casos de salud mental y acoso)
+- DIRECCION (casos academicos graves)
+- RECURSOS_HUMANOS (casos de acoso entre personal)
+- SEGURIDAD (casos de violencia o amenaza)
+
+Articulo 7. Toda queja tendra un identificador unico (quejaId) y un codigo
+de seguimiento que el reportante puede usar para consultar el estado.
+
+Articulo 8. Los plazos de resolucion segun criticidad:
+- CRITICA: 24 horas
+- ALTA: 3 dias habiles
+- MEDIA: 5 dias habiles
+- BAJA: 10 dias habiles
+
+Capitulo 3: Derechos del reportante
+
+Articulo 9. El reportante tiene derecho a:
+- Conocer el estado actual de su queja en cualquier momento
+- Recibir notificaciones cuando haya actualizaciones
+- Escalar su queja a una instancia superior si no esta conforme
+- Solicitar revision si su queja fue rechazada
+
+Articulo 10. La identidad del reportante (en quejas no anonimas) es confidencial
+y solo es accesible para el comite de quejas y las autoridades directamente
+involucradas en la resolucion.
+
+Articulo 11. Toda queja escalda es revisada por un comite de 3 miembros
+designados por la direccion academica.
+
+Capitulo 4: Sanciones
+
+Articulo 12. Las quejas comprobadas de ACOSO pueden resultar en:
+- Suspension temporal del agresor
+- Expulsion definitiva en casos graves
+- Denuncia penal si hay delito
+
+Articulo 13. Las quejas comprobadas de INFRAESTRUCTURA que afecten la salud
+seran atendidas en un plazo maximo de 48 horas.
+
+Articulo 14. El personal academico o administrativo que sea objeto de quejas
+reiteradas (3 o mas en un semestre) sera sometido a una revision de desempeno.
+
+Capitulo 5: Procedimiento de escalamiento
+
+Articulo 15. Una queja puede ser escalada manualmente por el reportante
+proporcionando un motivo de al menos 10 caracteres. Al escalar, la queja
+cambia su prioridad a ALTA independientemente de su criticidad original.
+
+Articulo 16. Las autoridades que reciben quejas escaladas deben responder
+dentro de 24 horas con un plan de accion.
+
+Articulo 17. La informacion sobre todas las quejas esta disponible en el
+dashboard de metricas para las autoridades competentes, con distribucion
+por categoria, criticidad, sede y facultad.
+
+Disposiciones finales
+
+Articulo 18. Este reglamento entra en vigor a partir de la fecha de su
+publicacion en el sistema Sentinel AcademIA.
+
+Articulo 19. Cualquier caso no previsto en este reglamento sera resuelto
+por el comite de quejas siguiendo los principios de equidad y justicia.
+
+Articulo 20. La universidad se reserva el derecho de actualizar este
+reglamento. Los cambios seran comunicados a traves del sistema Sentinel.
+
+Contacto para dudas o aclaraciones:
+- Email: quejas@universidad.edu
+- Telefono: +1-800-QUEJAS
+- Horario: lunes a viernes, 8:00 a 17:00
+
+Fin del documento.
+Versión: 1.0
+Última actualización: junio 2026

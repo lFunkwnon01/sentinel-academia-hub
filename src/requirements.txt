@@ -1,0 +1,12 @@
+# Runtime dependencies for Sentinel AcademIA Lambdas
+# Para el analyze_queja Lambda: oci no se incluye (mock rule-based)
+# El cliente OCI real esta en services/llm_client.py para uso local
+
+aws-lambda-powertools[tracer,logger,metrics]>=3.0.0
+boto3>=1.40.0
+boto3-stubs[dynamodb]>=1.40.0
+pydantic>=2.8.0
+pydantic-settings>=2.4.0
+orjson>=3.10.0
+email-validator>=2.2.0
+cryptography>=42.0.0

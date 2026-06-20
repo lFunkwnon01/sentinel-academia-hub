@@ -1,0 +1,39 @@
+graph TB
+    subgraph Actores["Personas de la Comunidad Universitaria"]
+        Estudiante([Estudiante Universitario])
+        Docente([Docente])
+        Personal([Personal Administrativo])
+    end
+
+    subgraph Autoridades["Autoridades Universitarias"]
+        Bienestar([Coordinador de Bienestar])
+        Director([Director Academico])
+    end
+
+    Sistema["Sentinel AcademIA<br/>Plataforma de Quejas con IA"]
+
+    subgraph Externos["Sistemas Externos"]
+        Email["Servicio de Email<br/>Amazon SES"]
+        SMS["Servicio de SMS<br/>Twilio"]
+        RegEstudiantil["Sistema Academico<br/>Legacy"]
+    end
+
+    Estudiante -->|sube queja| Sistema
+    Docente -->|reporta caso| Sistema
+    Personal -->|reporte operativo| Sistema
+
+    Bienestar -->|consulta dashboard| Sistema
+    Bienestar -->|recibe alertas| Sistema
+    Director -->|analisis agregado| Sistema
+
+    Sistema -->|notifica estados| Email
+    Sistema -->|alerta critica| SMS
+    Sistema -->|consulta rendimiento| RegEstudiantil
+
+    classDef actor fill:#2563EB,stroke:#1E40AF,color:#fff,stroke-width:2px
+    classDef system fill:#10B981,stroke:#059669,color:#fff,stroke-width:3px
+    classDef external fill:#F59E0B,stroke:#D97706,color:#fff,stroke-width:2px
+
+    class Estudiante,Docente,Personal,Bienestar,Director actor
+    class Sistema system
+    class Email,SMS,RegEstudiantil external

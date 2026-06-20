@@ -1,0 +1,58 @@
+graph LR
+    subgraph Internet["Internet (Global)"]
+        User["Usuario Final<br/>Navegador Web"]
+    end
+
+    subgraph Edge["Edge Network"]
+        Vercel["Vercel CDN<br/>Frontend Vue 3<br/>~50MB bundle"]
+    end
+
+    subgraph AWS_Region["AWS Region us-east-1 (Virginia)"]
+        APIGW["API Gateway<br/>HTTP API v2<br/>1 region"]
+        subgraph Lambda_Cluster["Lambda Functions (multi-AZ)"]
+            LF1["createQueja<br/>512MB / 30s"]
+            LF2["getQueja<br/>256MB / 10s"]
+            LF3["processQueja<br/>1024MB / 5min"]
+            LF4["chat<br/>1024MB / 60s"]
+        end
+        Q1["SQS Queue<br/>Standard, multi-AZ"]
+        DB1[("DynamoDB<br/>PAY_PER_REQUEST<br/>multi-AZ")]
+        S31["S3 Bucket<br/>Versionado + Lifecycle"]
+        Bus["EventBridge<br/>+ SNS multi-region"]
+    end
+
+    subgraph OCI_Region["OCI Region us-chicago-1"]
+        GenAI["Generative AI<br/>Cohere Command R<br/>+ Llama 3.1 70B<br/>(ON_DEMAND)"]
+        DocAI["Document Understanding<br/>Llama 3.2 90B Vision"]
+        SecVault["Vault<br/>Secretos criticos"]
+    end
+
+    User -->|HTTPS<br/>latency ~50ms| Vercel
+    Vercel -->|HTTPS<br/>REST API<br/>latency ~100ms| APIGW
+    APIGW --> LF1
+    APIGW --> LF2
+    APIGW --> LF4
+    Q1 -->|Event Source Mapping| LF3
+
+    LF1 -->|SDK call| DB1
+    LF1 -->|SDK call| Q1
+    LF2 -->|SDK call| DB1
+    LF3 -->|SDK call| DB1
+    LF3 -->|SDK call| S31
+    LF3 -->|SDK call| Bus
+    LF4 -->|SDK call| DB1
+
+    LF3 -->|HTTPS<br/>cross-region<br/>latency ~80ms| GenAI
+    LF3 -->|HTTPS| DocAI
+    LF1 -.->|Get secrets| SecVault
+    LF4 -.->|Get secrets| SecVault
+
+    classDef internet fill:#94A3B8,stroke:#475569,color:#fff
+    classDef edge fill:#3B82F6,stroke:#1E40AF,color:#fff
+    classDef aws fill:#FF9900,stroke:#C2410C,color:#fff
+    classDef oci fill:#C74634,stroke:#991B1B,color:#fff
+
+    class User internet
+    class Vercel edge
+    class APIGW,Lambda_Cluster,Q1,DB1,S31,Bus aws
+    class GenAI,DocAI,SecVault oci

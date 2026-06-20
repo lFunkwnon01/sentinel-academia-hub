@@ -1,0 +1,649 @@
+openapi: 3.1.0
+info:
+  title: Sentinel AcademIA API
+  version: 0.1.0
+  description: |
+    API REST para la plataforma Sentinel AcademIA - gestion de quejas universitarias
+    con analisis automatico mediante IA generativa (Oracle OCI Cohere Command R + Llama 3.1).
+    
+    ## Caracteristicas
+    - Endpoints asincronos (202 Accepted) para operaciones de escritura
+    - Validacion estricta con Zod en backend (mismo schema que en este spec)
+    - Correlation ID end-to-end (header `x-correlation-id`)
+    - Rate limiting (100 req/min por usuario, 200 por IP)
+    - Respuestas de error uniformes con `code`, `message`, `correlationId`
+    
+  contact:
+    name: Equipo Sentinel AcademIA
+    email: sentinel-academia@universidad.edu
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.sentinel-academia.com
+    description: Produccion
+  - url: https://dev-api.sentinel-academia.com
+    description: Desarrollo (AWS Academy)
+  - url: http://localhost:4010
+    description: Mock local (Prism)
+
+tags:
+  - name: quejas
+    description: Operaciones CRUD de quejas
+  - name: analisis
+    description: Resultados del analisis LLM
+  - name: dashboard
+    description: Metricas agregadas para autoridades
+  - name: chat
+    description: Chat RAG con IA
+  - name: admin
+    description: Operaciones administrativas
+
+paths:
+  /api/quejas:
+    post:
+      summary: Crear nueva queja
+      operationId: createQueja
+      tags: [quejas]
+      description: |
+        Recibe una queja y la encola para procesamiento asincrono.
+        Devuelve 202 Accepted con un ID de seguimiento inmediatamente.
+        El analisis con LLM se completa en background (< 60s tipicamente).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateQuejaInput'
+            examples:
+              ejemplo1:
+                summary: Queja academica
+                value:
+                  titulo: "Problema con profesor de calculo"
+                  descripcion: "El profesor no ha asistido a clases en las ultimas 2 semanas y no hay reemplazo."
+                  categoriaDeclarada: "ACADEMICA"
+                  sede: "Sede Norte"
+                  facultad: "Ingenieria"
+              ejemplo2:
+                summary: Queja critica
+                value:
+                  titulo: "Situacion de acoso en el salon B-301"
+                  descripcion: "Varios companeros han reportado comentarios ofensivos reiterados de un estudiante."
+                  categoriaDeclarada: "ACOSO"
+                  anonima: false
+      responses:
+        '202':
+          description: Queja aceptada para procesamiento
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuejaAccepted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    
+    get:
+      summary: Listar quejas
+      operationId: listQuejas
+      tags: [quejas]
+      description: Lista quejas con filtros opcionales y paginacion.
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDIENTE, EN_COLA, PROCESANDO, ANALIZADA, NOTIFICADA, ERROR]
+        - name: criticidad
+          in: query
+          schema:
+            type: string
+            enum: [BAJA, MEDIA, ALTA, CRITICA]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: cursor
+          in: query
+          description: Cursor de paginacion (opaco)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista paginada de quejas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuejaListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/quejas/{id}:
+    get:
+      summary: Obtener queja por ID
+      operationId: getQueja
+      tags: [quejas]
+      parameters:
+        - $ref: '#/components/parameters/QuejaId'
+      responses:
+        '200':
+          description: Detalle de la queja
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Queja'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/quejas/{id}/analysis:
+    get:
+      summary: Obtener analisis LLM de una queja
+      operationId: getAnalysis
+      tags: [analisis]
+      description: |
+        Devuelve el resultado del analisis con IA generativa.
+        Si la queja aun no ha sido procesada, devuelve 404.
+      parameters:
+        - $ref: '#/components/parameters/QuejaId'
+      responses:
+        '200':
+          description: Analisis completo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Analisis'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/quejas/{id}/escalate:
+    post:
+      summary: Escalar queja manualmente
+      operationId: escalateQueja
+      tags: [quejas, admin]
+      description: Marca una queja como escalada y notifica a las autoridades.
+      parameters:
+        - $ref: '#/components/parameters/QuejaId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [motivo]
+              properties:
+                motivo:
+                  type: string
+                  minLength: 10
+                  maxLength: 500
+                notificarA:
+                  type: array
+                  items:
+                    type: string
+                    enum: [BIENESTAR, DIRECCION, RECURSOS_HUMANOS, SEGURIDAD]
+      responses:
+        '200':
+          description: Queja escalada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Queja'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/dashboard/metrics:
+    get:
+      summary: Metricas agregadas del dashboard
+      operationId: getMetrics
+      tags: [dashboard]
+      description: |
+        Devuelve metricas agregadas para el dashboard de autoridades.
+        Incluye distribucion por categoria, criticidad, tendencia temporal, y casos activos.
+      parameters:
+        - name: rango
+          in: query
+          description: Rango temporal en dias
+          schema:
+            type: integer
+            enum: [7, 30, 90]
+            default: 30
+      responses:
+        '200':
+          description: Metricas del dashboard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardMetrics'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/chat:
+    post:
+      summary: Chat con IA (RAG sobre reglamento)
+      operationId: chatWithAssistant
+      tags: [chat]
+      description: |
+        Envia una pregunta al asistente conversacional.
+        El asistente usa RAG sobre el reglamento universitario y el historial de quejas
+        para generar respuestas con citaciones.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Respuesta del asistente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  parameters:
+    QuejaId:
+      name: id
+      in: path
+      required: true
+      description: ID unico de la queja (UUID v4)
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    BadRequest:
+      description: Peticion invalida
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: No autorizado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Recurso no encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    RateLimited:
+      description: Demasiadas peticiones
+      headers:
+        Retry-After:
+          description: Segundos a esperar antes de reintentar
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ServerError:
+      description: Error interno del servidor
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    CreateQuejaInput:
+      type: object
+      required: [titulo, descripcion, categoriaDeclarada]
+      properties:
+        titulo:
+          type: string
+          minLength: 5
+          maxLength: 120
+          description: Titulo breve de la queja
+        descripcion:
+          type: string
+          minLength: 20
+          maxLength: 5000
+          description: Descripcion detallada del problema
+        categoriaDeclarada:
+          type: string
+          enum: [ACADEMICA, INFRAESTRUCTURA, ACOSO, ADMINISTRATIVA, SALUD, OTRA]
+          description: Categoria que el reportante considera adecuada
+        adjuntos:
+          type: array
+          maxItems: 5
+          items:
+            type: string
+            format: uri
+          description: URLs a archivos adjuntos (PDFs, imagenes) en S3
+        anonima:
+          type: boolean
+          default: false
+          description: Si el reporte es anonimo
+        sede:
+          type: string
+          maxLength: 100
+        facultad:
+          type: string
+          maxLength: 100
+        contactoEmail:
+          type: string
+          format: email
+          description: Email de contacto (solo si no es anonimo)
+        contactoTelefono:
+          type: string
+          pattern: '^\+?[0-9\s-]{7,20}$'
+
+    QuejaAccepted:
+      type: object
+      required: [quejaId, status, correlationId, createdAt]
+      properties:
+        quejaId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [PENDIENTE, EN_COLA, PROCESANDO, ANALIZADA, NOTIFICADA, ERROR]
+        correlationId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        estimatedAnalysisTime:
+          type: integer
+          description: Tiempo estimado en segundos para completar el analisis
+          example: 30
+
+    Queja:
+      type: object
+      required: [quejaId, titulo, descripcion, status, createdAt]
+      properties:
+        quejaId:
+          type: string
+          format: uuid
+        titulo:
+          type: string
+        descripcion:
+          type: string
+        categoriaDeclarada:
+          type: string
+          enum: [ACADEMICA, INFRAESTRUCTURA, ACOSO, ADMINISTRATIVA, SALUD, OTRA]
+        status:
+          type: string
+          enum: [PENDIENTE, EN_COLA, PROCESANDO, ANALIZADA, NOTIFICADA, ERROR]
+        userId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        analysis:
+          $ref: '#/components/schemas/Analisis'
+        adjuntos:
+          type: array
+          items:
+            type: string
+            format: uri
+        sede:
+          type: string
+        facultad:
+          type: string
+        anonima:
+          type: boolean
+        escalada:
+          type: boolean
+          description: Si fue escalada manualmente
+        escalaAt:
+          type: string
+          format: date-time
+
+    Analisis:
+      type: object
+      required: [categoria, criticidad, sentimiento, prioridad, accionSugerida]
+      properties:
+        categoria:
+          type: string
+          enum: [ACADEMICA, INFRAESTRUCTURA, ACOSO, ADMINISTRATIVA, SALUD, OTRA]
+        subcategoria:
+          type: string
+        criticidad:
+          type: string
+          enum: [BAJA, MEDIA, ALTA, CRITICA]
+        criticidadJustificacion:
+          type: string
+        sentimiento:
+          type: string
+          enum: [POSITIVO, NEUTRO, NEGATIVO, NEGATIVO_FUERTE]
+        entidades:
+          type: array
+          items:
+            type: object
+            properties:
+              tipo:
+                type: string
+              texto:
+                type: string
+        temasClave:
+          type: array
+          items:
+            type: string
+        accionSugerida:
+          type: string
+        prioridad:
+          type: integer
+          minimum: 1
+          maximum: 10
+        requiereNotificacionInmediata:
+          type: boolean
+        modeloUsado:
+          type: string
+          description: Modelo LLM que genero el analisis
+          example: cohere.command-r
+        tokensConsumidos:
+          type: integer
+        latenciaMs:
+          type: integer
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Nivel de confianza del modelo (0-1)
+        generatedAt:
+          type: string
+          format: date-time
+
+    QuejaListItem:
+      type: object
+      properties:
+        quejaId:
+          type: string
+          format: uuid
+        titulo:
+          type: string
+        categoria:
+          type: string
+        criticidad:
+          type: string
+          enum: [BAJA, MEDIA, ALTA, CRITICA]
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        prioridad:
+          type: integer
+
+    QuejaListResponse:
+      type: object
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuejaListItem'
+        total:
+          type: integer
+        nextCursor:
+          type: string
+          description: Cursor para obtener la siguiente pagina (null si no hay mas)
+
+    DashboardMetrics:
+      type: object
+      properties:
+        resumen:
+          type: object
+          properties:
+            totalQuejas:
+              type: integer
+            quejasCriticas:
+              type: integer
+            quejasPendientes:
+              type: integer
+            tiempoPromedioResolucion:
+              type: integer
+              description: En horas
+        distribucionPorCategoria:
+          type: object
+          additionalProperties:
+            type: integer
+          example:
+            ACADEMICA: 45
+            INFRAESTRUCTURA: 23
+            ACOSO: 8
+            ADMINISTRATIVA: 67
+            SALUD: 12
+            OTRA: 15
+        distribucionPorCriticidad:
+          type: object
+          additionalProperties:
+            type: integer
+          example:
+            BAJA: 80
+            MEDIA: 60
+            ALTA: 25
+            CRITICA: 5
+        tendenciaDiaria:
+          type: array
+          items:
+            type: object
+            properties:
+              fecha:
+                type: string
+                format: date
+              total:
+                type: integer
+              criticas:
+                type: integer
+        topSedes:
+          type: array
+          items:
+            type: object
+            properties:
+              sede:
+                type: string
+              count:
+                type: integer
+        topFacultades:
+          type: array
+          items:
+            type: object
+            properties:
+              facultad:
+                type: string
+              count:
+                type: integer
+        rangoDias:
+          type: integer
+
+    ChatRequest:
+      type: object
+      required: [question]
+      properties:
+        question:
+          type: string
+          minLength: 5
+          maxLength: 1000
+        context:
+          type: string
+          enum: [REGLAMENTO, QUEJAS, TODOS]
+          default: TODOS
+        conversationId:
+          type: string
+          format: uuid
+          description: ID de conversacion para mantener contexto
+
+    ChatResponse:
+      type: object
+      required: [answer, sources]
+      properties:
+        answer:
+          type: string
+        sources:
+          type: array
+          items:
+            type: object
+            properties:
+              content:
+                type: string
+              source:
+                type: string
+              score:
+                type: number
+                minimum: 0
+                maximum: 1
+        conversationId:
+          type: string
+          format: uuid
+        modeloUsado:
+          type: string
+        tokensUsados:
+          type: integer
+        latenciaMs:
+          type: integer
+
+    Error:
+      type: object
+      required: [code, message, correlationId]
+      properties:
+        code:
+          type: string
+          enum:
+            - BAD_REQUEST
+            - VALIDATION_ERROR
+            - UNAUTHORIZED
+            - NOT_FOUND
+            - RATE_LIMITED
+            - INTERNAL_ERROR
+            - LLM_UNAVAILABLE
+            - SERVICE_UNAVAILABLE
+        message:
+          type: string
+        correlationId:
+          type: string
+          format: uuid
+        details:
+          type: object
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
