@@ -159,8 +159,21 @@ class DynamoClient:
         if limit:
             kwargs["Limit"] = limit
 
-        response = self._table.scan(**kwargs)
-        return response.get("Items", [])
+        # Paginated scan to handle > 1MB / many items
+        items: list[dict[str, Any]] = []
+        while True:
+            response = self._table.scan(**kwargs)
+            items.extend(response.get("Items", []))
+            last_key = response.get("LastEvaluatedKey")
+            if not last_key:
+                break
+            kwargs["ExclusiveStartKey"] = last_key
+            if limit and len(items) >= limit:
+                items = items[:limit]
+                break
+            if len(items) > 10000:
+                break
+        return items
 
     def update_item(
         self,

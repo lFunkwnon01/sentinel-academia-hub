@@ -118,11 +118,26 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         if rango not in (7, 30, 90):
             rango = 30
 
-        # Query all quejas for this tenant
+        # Query all quejas for this tenant (with pagination)
         dynamo = get_dynamo_client()
-        items = dynamo._table.scan(
-            FilterExpression=Attr("pk").begins_with(f"TENANT#{tenant_id}#QUEJA#")
-        ).get("Items", [])
+        items: list[dict[str, Any]] = []
+        scan_kwargs: dict[str, Any] = {
+            "FilterExpression": Attr("pk").begins_with(f"TENANT#{tenant_id}#QUEJA#"),
+            "ProjectionExpression": (
+                "pk, sk, status, categoriaDeclarada, createdAt, updatedAt, "
+                "sede, facultad, analysis"
+            ),
+        }
+        while True:
+            resp = dynamo._table.scan(**scan_kwargs)
+            items.extend(resp.get("Items", []))
+            last_key = resp.get("LastEvaluatedKey")
+            if not last_key:
+                break
+            scan_kwargs["ExclusiveStartKey"] = last_key
+            if len(items) > 10000:
+                log.warning(f"Truncating dashboard scan at {len(items)} items for {tenant_id}")
+                break
 
         metrics = _aggregate_metrics(items, rango)
         log.info("Dashboard metrics computed", extra={"total": metrics["resumen"]["totalQuejas"]})
