@@ -442,4 +442,4 @@ Outputs:
 
   FrontendUrl:
     Description: URL del frontend
-    Value: "http://sentinel-frontend-dev-227165337884.s3-website-us-east-1.amazonaws.com"
+    Value: "https://main.d2pfw9gfjupz7t.amplifyapp.com"

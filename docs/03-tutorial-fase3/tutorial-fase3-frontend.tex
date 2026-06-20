@@ -125,7 +125,7 @@ En la \textbf{Fase 3} tomamos el frontend Vue 3 (que ya ten\'iamos desarrollado)
   \item \textbf{Frontend}: Vue 3 + TypeScript + Vite + Pinia
   \item \textbf{Deploy}: S3 Static Website Hosting (sin servidor)
   \item \textbf{Costo}: \$0 (AWS Academy incluye S3 gratis en sandbox)
-  \item \textbf{URL p\'ublica}: \texttt{http://sentinel-frontend-dev-227165337884.s3-website-us-east-1.amazonaws.com}
+  \item \textbf{URL p\'ublica}: \texttt{https://main.d2pfw9gfjupz7t.amplifyapp.com}
 \end{itemize}
 
 \textbf{Lo que cubrimos}:
@@ -538,7 +538,7 @@ Globals:
 
 \begin{lstlisting}[language=bash,caption={Test E2E: frontend simulado}]
 API="https://om3eiczjr9.execute-api.us-east-1.amazonaws.com/dev"
-FRONTEND="http://sentinel-frontend-dev-227165337884.s3-website-us-east-1.amazonaws.com"
+FRONTEND="https://main.d2pfw9gfjupz7t.amplifyapp.com"
 
 # 1. POST como si fueras el frontend
 RESP=$(curl -s -X POST "$API/api/quejas" \
@@ -594,7 +594,7 @@ Output esperado:
 \toprule
 \textbf{Componente} & \textbf{URL} \\
 \midrule
-Frontend (S3) & http://sentinel-frontend-dev-227165337884.s3-website-us-east-1.amazonaws.com \\
+Frontend (S3) & https://main.d2pfw9gfjupz7t.amplifyapp.com \\
 API Health & https://om3eiczjr9.execute-api.us-east-1.amazonaws.com/dev/health \\
 API Quejas & https://om3eiczjr9.execute-api.us-east-1.amazonaws.com/dev/api/quejas \\
 S3 Frontend Bucket & s3://sentinel-frontend-dev-227165337884/ \\

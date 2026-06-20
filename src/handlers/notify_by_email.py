@@ -208,10 +208,10 @@ def render_email_html(
     {recommendations_html}
 
     <div class="actions">
-      <a href="https://sentinel-frontend-dev-227165337884.s3-website-us-east-1.amazonaws.com/dashboard" class="btn btn-primary">
+      <a href="https://main.d2pfw9gfjupz7t.amplifyapp.com/dashboard" class="btn btn-primary">
         Ver en Dashboard
       </a>
-      <a href="https://sentinel-frontend-dev-227165337884.s3-website-us-east-1.amazonaws.com/queja/{queja.get("quejaId", "")}" class="btn btn-secondary">
+      <a href="https://main.d2pfw9gfjupz7t.amplifyapp.com/queja/{queja.get("quejaId", "")}" class="btn btn-secondary">
         Ver queja completa
       </a>
     </div>

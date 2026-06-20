@@ -202,7 +202,7 @@ def render_email_html(
             + '</dd>'
         )
 
-    frontend_base = "https://sentinel-frontend-dev-227165337884.s3-website-us-east-1.amazonaws.com"
+    frontend_base = "https://main.d2pfw9gfjupz7t.amplifyapp.com"
 
     return f'''<!DOCTYPE html>
 <html lang="es">
