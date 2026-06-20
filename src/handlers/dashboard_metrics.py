@@ -123,10 +123,6 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         items: list[dict[str, Any]] = []
         scan_kwargs: dict[str, Any] = {
             "FilterExpression": Attr("pk").begins_with(f"TENANT#{tenant_id}#QUEJA#"),
-            "ProjectionExpression": (
-                "pk, sk, status, categoriaDeclarada, createdAt, updatedAt, "
-                "sede, facultad, analysis"
-            ),
         }
         while True:
             resp = dynamo._table.scan(**scan_kwargs)
