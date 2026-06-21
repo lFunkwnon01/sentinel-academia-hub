@@ -16,8 +16,8 @@ import { RouterLink } from 'vue-router';
           <span class="font-semibold text-ink-900">Sentinel AcademIA</span>
         </div>
         <nav class="flex items-center gap-6 text-sm">
-          <a href="#features" class="text-ink-600 hover:text-ink-900">Caracter\'isticas</a>
-          <a href="#how" class="text-ink-600 hover:text-ink-900">C\'omo funciona</a>
+          <a href="#features" class="text-ink-600 hover:text-ink-900">Características</a>
+          <a href="#how" class="text-ink-600 hover:text-ink-900">Cómo funciona</a>
           <RouterLink to="/dashboard" class="btn-secondary">Ingresar</RouterLink>
         </nav>
       </div>
@@ -35,11 +35,11 @@ import { RouterLink } from 'vue-router';
         </div>
         <h1 class="text-4xl sm:text-5xl lg:text-6xl font-semibold text-ink-900 tracking-tight leading-tight max-w-4xl mx-auto">
           Tu voz. Nuestra IA.
-          <span class="bg-gradient-to-r from-brand-600 to-brand-800 bg-clip-text text-transparent">Universidad m\'as justa.</span>
+          <span class="bg-gradient-to-r from-brand-600 to-brand-800 bg-clip-text text-transparent">Universidad más justa.</span>
         </h1>
         <p class="mt-6 text-lg text-ink-600 max-w-2xl mx-auto leading-relaxed">
           Sentinel AcademIA analiza cada queja con inteligencia artificial, categoriza
-          prioridades y la env\'ia a la autoridad correcta. En minutos, no semanas.
+          prioridades y la envía a la autoridad correcta. En minutos, no semanas.
         </p>
         <div class="mt-10 flex items-center justify-center gap-3">
           <RouterLink to="/queja" class="btn-primary text-base px-6 py-3">
@@ -53,11 +53,11 @@ import { RouterLink } from 'vue-router';
         <div class="mt-12 grid grid-cols-3 gap-8 max-w-2xl mx-auto">
           <div>
             <div class="text-3xl font-semibold text-ink-900">6</div>
-            <div class="text-sm text-ink-500 mt-1">Categor\'ias</div>
+            <div class="text-sm text-ink-500 mt-1">Categorías</div>
           </div>
           <div>
             <div class="text-3xl font-semibold text-ink-900">&lt; 30s</div>
-            <div class="text-sm text-ink-500 mt-1">Tiempo de an\'alisis</div>
+            <div class="text-sm text-ink-500 mt-1">Tiempo de análisis</div>
           </div>
           <div>
             <div class="text-3xl font-semibold text-ink-900">10+</div>
@@ -71,8 +71,8 @@ import { RouterLink } from 'vue-router';
     <section id="features" class="py-20 bg-ink-50">
       <div class="max-w-6xl mx-auto px-6">
         <div class="text-center max-w-2xl mx-auto mb-12">
-          <h2 class="text-3xl font-semibold text-ink-900 tracking-tight">Dise\~nado para universidades reales</h2>
-          <p class="mt-3 text-ink-600">No es solo un formulario. Es un sistema completo de gesti\'on de quejas con inteligencia artificial.</p>
+          <h2 class="text-3xl font-semibold text-ink-900 tracking-tight">Diseñado para universidades reales</h2>
+          <p class="mt-3 text-ink-600">No es solo un formulario. Es un sistema completo de gestión de quejas con inteligencia artificial.</p>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div v-for="f in features" :key="f.title" class="card p-6">
@@ -91,7 +91,7 @@ import { RouterLink } from 'vue-router';
     <!-- How it works -->
     <section id="how" class="py-20">
       <div class="max-w-6xl mx-auto px-6">
-        <h2 class="text-3xl font-semibold text-ink-900 tracking-tight text-center mb-12">C\'omo funciona</h2>
+        <h2 class="text-3xl font-semibold text-ink-900 tracking-tight text-center mb-12">Cómo funciona</h2>
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div v-for="(s, i) in steps" :key="i" class="relative">
             <div class="card p-5 h-full">
@@ -108,7 +108,7 @@ import { RouterLink } from 'vue-router';
     <section class="py-20 bg-gradient-to-br from-brand-600 to-brand-800 text-white">
       <div class="max-w-3xl mx-auto px-6 text-center">
         <h2 class="text-3xl font-semibold tracking-tight">Empieza a transformar tu universidad</h2>
-        <p class="mt-3 text-brand-100">Menos burocracia, m\'as confianza. M\'as justicia.</p>
+        <p class="mt-3 text-brand-100">Menos burocracia, más confianza. Más justicia.</p>
         <RouterLink to="/queja" class="mt-8 inline-flex items-center gap-2 bg-white text-brand-700 font-medium px-6 py-3 rounded-lg hover:bg-brand-50 transition-colors">
           Reportar primera queja
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -120,7 +120,7 @@ import { RouterLink } from 'vue-router';
 
     <footer class="border-t border-ink-100 py-8">
       <div class="max-w-6xl mx-auto px-6 text-sm text-ink-500 flex items-center justify-between">
-        <div>&copy; 2026 Sentinel AcademIA &middot; Hackat\'on Multi-nube AWS + OCI</div>
+        <div>&copy; 2026 Sentinel AcademIA &middot; Hackatón Multi-nube AWS + OCI</div>
         <div>Hecho con <span class="text-red-500">&hearts;</span> para universidades</div>
       </div>
     </footer>
@@ -134,7 +134,7 @@ export default {
     return {
       features: [
         {
-          title: 'An\'alisis con IA',
+          title: 'Análisis con IA',
           desc: 'Cohere categoriza y prioriza cada queja en menos de 30 segundos. Sin sesgo, sin demoras.',
           icon: 'M13 10V3L4 14h7v7l9-11h-7z',
           iconBg: 'bg-gradient-to-br from-brand-500 to-brand-700',
@@ -147,19 +147,19 @@ export default {
         },
         {
           title: 'Notificaciones a autoridades',
-          desc: 'Email autom\'atico a bienestar, rector\'ia, seguridad. Con recomendaciones de acci\'on.',
+          desc: 'Email automático a bienestar, rectoría, seguridad. Con recomendaciones de acción.',
           icon: 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
           iconBg: 'bg-gradient-to-br from-emerald-500 to-emerald-700',
         },
         {
-          title: 'An\'alisis agregado',
+          title: 'Análisis agregado',
           desc: '10 quejas sobre el mismo tema? Se consolidan. Patrones invisibles al ojo humano.',
           icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
           iconBg: 'bg-gradient-to-br from-amber-500 to-amber-700',
         },
         {
           title: 'Dashboard ejecutivo',
-          desc: 'M\'etricas en tiempo real: cr\'iticas, pendientes, por categor\'ia. Para rector\'ia.',
+          desc: 'Métricas en tiempo real: críticas, pendientes, por categoría. Para rectoría.',
           icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6',
           iconBg: 'bg-gradient-to-br from-pink-500 to-pink-700',
         },
@@ -171,10 +171,10 @@ export default {
         },
       ],
       steps: [
-        { title: 'Reportas', desc: 'Estudiante o personal describe la situaci\'on con su email.' },
+        { title: 'Reportas', desc: 'Estudiante o personal describe la situación con su email.' },
         { title: 'IA analiza', desc: 'Cohere categoriza, prioriza y asigna la autoridad.' },
-        { title: 'Notifica', desc: 'Email autom\'atico a bienestar, rector\'ia o seguridad.' },
-        { title: 'Resuelve', desc: 'La autoridad act\'ua y la comunidad universitaria mejora.' },
+        { title: 'Notifica', desc: 'Email automático a bienestar, rectoría o seguridad.' },
+        { title: 'Resuelve', desc: 'La autoridad actúa y la comunidad universitaria mejora.' },
       ],
     };
   },

@@ -12,10 +12,10 @@ const inputText = ref('');
 const messagesEndRef = useTemplateRef<HTMLElement>('messagesEndRef');
 
 const suggestedQuestions = [
-  'Cual es el proceso para escalar una queja critica?',
-  'Que hago si sufro acoso de un companero?',
-  'Cuanto tiempo tarda en procesarse una queja?',
-  'Como puedo reportar un problema de forma anonima?',
+  '¿Cuál es el proceso para escalar una queja crítica?',
+  '¿Qué hago si sufro acoso de un compañero?',
+  '¿Cuánto tiempo tarda en procesarse una queja?',
+  '¿Cómo puedo reportar un problema de forma anónima?',
 ];
 
 async function send() {
@@ -66,7 +66,7 @@ function clear() {
       <div v-if="messages.length === 0" class="chat-view__welcome">
         <div class="chat-view__welcome-icon" aria-hidden="true">💬</div>
         <h2>Hola, soy tu asistente virtual</h2>
-        <p>Preguntame sobre el proceso de quejas, el reglamento universitario, o cualquier duda relacionada.</p>
+        <p>Pregúntame sobre el proceso de quejas, el reglamento universitario, o cualquier duda relacionada.</p>
         <div class="chat-view__suggestions">
           <p class="chat-view__suggestions-label">Preguntas frecuentes:</p>
           <button

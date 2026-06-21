@@ -17,7 +17,7 @@ const labels: Record<Criticidad, string> = {
   BAJA: 'Baja',
   MEDIA: 'Media',
   ALTA: 'Alta',
-  CRITICA: 'Critica',
+  CRITICA: 'Crítica',
 };
 
 const styles = computed(() => {

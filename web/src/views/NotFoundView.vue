@@ -7,8 +7,8 @@ import AppButton from '@/components/common/AppButton.vue';
   <div class="not-found">
     <div class="not-found__content">
       <div class="not-found__code">404</div>
-      <h1>Pagina no encontrada</h1>
-      <p>La pagina que buscas no existe o fue movida.</p>
+      <h1>Página no encontrada</h1>
+      <p>La página que buscas no existe o fue movida.</p>
       <RouterLink to="/">
         <AppButton variant="primary">Volver al inicio</AppButton>
       </RouterLink>

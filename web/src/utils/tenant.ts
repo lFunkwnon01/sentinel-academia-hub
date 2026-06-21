@@ -15,7 +15,7 @@ const DOMAIN_TO_TENANT: Record<string, { tenantId: string; name: string }> = {
   "unmsm.edu.pe": { tenantId: "demo-unmsm", name: "UNMSM (Universidad Nacional Mayor de San Marcos)" },
 };
 
-const DEFAULT_TENANT = "demo-utpl";
+const DEFAULT_TENANT = "demo-utec";
 
 export interface TenantInfo {
   tenantId: string;
@@ -58,7 +58,7 @@ export function getSessionTenant(): TenantInfo {
       // fall through
     }
   }
-  return { tenantId: DEFAULT_TENANT, name: "UTPL", source: "default" };
+  return { tenantId: DEFAULT_TENANT, name: "UTEC (Universidad de Ingeniería y Tecnología)", source: "default" };
 }
 
 export function clearSessionTenant(): void {

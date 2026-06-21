@@ -12,13 +12,13 @@ import { useNotificationStore } from '@/stores/notifications';
 const notifications = useNotificationStore();
 
 const Schema = z.object({
-  titulo: z.string().min(5, 'Minimo 5 caracteres').max(120, 'Maximo 120 caracteres'),
-  descripcion: z.string().min(20, 'Minimo 20 caracteres').max(5000, 'Maximo 5000 caracteres'),
+  titulo: z.string().min(5, 'Mínimo 5 caracteres').max(120, 'Máximo 120 caracteres'),
+  descripcion: z.string().min(20, 'Mínimo 20 caracteres').max(5000, 'Máximo 5000 caracteres'),
   categoriaDeclarada: z.enum(['ACADEMICA', 'INFRAESTRUCTURA', 'ACOSO', 'ADMINISTRATIVA', 'SALUD', 'OTRA']),
   sede: z.string().max(100).optional().or(z.literal('')),
   facultad: z.string().max(100).optional().or(z.literal('')),
   anonima: z.boolean(),
-  contactoEmail: z.string().email('Email invalido').optional().or(z.literal('')),
+  contactoEmail: z.string().email('Email inválido').optional().or(z.literal('')),
   cursoCodigo: z.string().max(20).optional().or(z.literal('')),
 });
 
@@ -36,7 +36,7 @@ const form = ref<FormData>({
 });
 
 // Categories where 1 queja is enough to act on -> email required, no anonymous
-const EMAIL_REQUIRED_CATEGORIES: Categoria[] = ['ACADEMICA', 'ACOSO', 'ADMINISTRATIVA', 'SALUD', 'OTRA'];
+const EMAIL_REQUIRED_CATEGORIES: Categoria[] = ['ACADEMICA', 'ACOSO', 'ADMINISTRATIVA', 'SALUD'];
 const requiresEmail = computed(() => EMAIL_REQUIRED_CATEGORIES.includes(form.value.categoriaDeclarada));
 const requiresCursoCodigo = computed(() => form.value.categoriaDeclarada === 'ACADEMICA');
 
@@ -67,7 +67,7 @@ const errors = ref<Partial<Record<keyof FormData, string>>>({});
 const submitting = ref(false);
 
 const categorias: Array<{ value: Categoria; label: string }> = [
-  { value: 'ACADEMICA', label: 'Academica' },
+  { value: 'ACADEMICA', label: 'Académica' },
   { value: 'INFRAESTRUCTURA', label: 'Infraestructura' },
   { value: 'ACOSO', label: 'Acoso' },
   { value: 'ADMINISTRATIVA', label: 'Administrativa' },
@@ -128,15 +128,15 @@ async function onSubmit() {
 
   // Reglas de negocio: email obligatorio, anonima deshabilitada segun categoria
   if (requiresEmail.value && result.data.anonima) {
-    errors.value.anonima = `Las quejas de tipo ${form.value.categoriaDeclarada} no pueden ser anonimas`;
+    errors.value.anonima = `Las quejas de tipo ${form.value.categoriaDeclarada} no pueden ser anónimas`;
     return;
   }
   if (requiresEmail.value && !result.data.contactoEmail) {
-    errors.value.contactoEmail = 'El email es obligatorio para esta categoria';
+    errors.value.contactoEmail = 'El email es obligatorio para esta categoría';
     return;
   }
   if (requiresCursoCodigo.value && !result.data.cursoCodigo) {
-    errors.value.cursoCodigo = 'El codigo del curso es obligatorio para quejas ACADEMICA';
+    errors.value.cursoCodigo = 'El código del curso es obligatorio para quejas ACADÉMICA';
     return;
   }
 
@@ -163,22 +163,22 @@ async function onSubmit() {
   <form class="queja-form" @submit.prevent="onSubmit">
     <h2 class="queja-form__title">Reportar una Queja</h2>
     <p class="queja-form__description">
-      Tu reporte sera analizado automaticamente por IA para asignar prioridad y categoria.
-      Toda la informacion es confidencial.
+      Tu reporte será analizado automáticamente por IA para asignar prioridad y categoría.
+      Toda la información es confidencial.
     </p>
 
     <div v-if="detectedTenant" class="queja-form__tenant-badge" role="status">
       <span class="queja-form__tenant-icon" aria-hidden="true">🏛️</span>
       <div>
         <strong>{{ detectedTenant.name }}</strong>
-        <p>Universidad detectada automaticamente desde el dominio de tu email. Las notificaciones se enviaran al bienestar de esta institucion.</p>
+        <p>Universidad detectada automáticamente desde el dominio de tu email. Las notificaciones se enviarán al bienestar de esta institución.</p>
       </div>
     </div>
 
     <AppInput
       v-model="form.titulo"
-      label="Titulo de la queja"
-      placeholder="Ej: Falla en aire acondicionado del salon B-301"
+      label="Título de la queja"
+      placeholder="Ej: Falla en aire acondicionado del salón B-301"
       :required="true"
       :maxlength="120"
       :error="errors.titulo"
@@ -187,8 +187,8 @@ async function onSubmit() {
 
     <AppTextarea
       v-model="form.descripcion"
-      label="Descripcion detallada"
-      placeholder="Describe la situacion con el mayor detalle posible..."
+      label="Descripción detallada"
+      placeholder="Describe la situación con el mayor detalle posible..."
       :required="true"
       :rows="6"
       :maxlength="5000"
@@ -199,7 +199,7 @@ async function onSubmit() {
 
     <AppSelect
       v-model="form.categoriaDeclarada"
-      label="Categoria"
+      label="Categoría"
       :options="categorias"
       :required="true"
     />
@@ -207,19 +207,19 @@ async function onSubmit() {
     <div v-if="requiresCursoCodigo" class="queja-form__info">
       <AppInput
         v-model="form.cursoCodigo"
-        label="Codigo del curso"
+        label="Código del curso"
         placeholder="Ej: CS101, MAT202"
         :required="true"
         :maxlength="20"
         :error="errors.cursoCodigo"
-        hint="Las quejas academicas requieren el codigo del curso afectado"
+        hint="Las quejas académicas requieren el código del curso afectado"
       />
     </div>
 
     <div v-if="requiresEmail" class="queja-form__info">
       <p class="queja-form__info-text">
-        <strong>Esta categoria requiere email de contacto</strong> para poder darte seguimiento.
-        Las quejas individuales se procesan de inmediato; no es posible enviarlas anonimas.
+        <strong>Esta categoría requiere email de contacto</strong> para poder darte seguimiento.
+        Las quejas individuales se procesan de inmediato; no es posible enviarlas anónimas.
       </p>
     </div>
 
@@ -233,7 +233,7 @@ async function onSubmit() {
       <AppInput
         v-model="form.facultad"
         label="Facultad (opcional)"
-        placeholder="Ej: Ingenieria"
+        placeholder="Ej: Ingeniería"
         :maxlength="100"
       />
     </div>
@@ -245,9 +245,9 @@ async function onSubmit() {
         :disabled="requiresEmail"
       />
       <span>
-        Reportar de forma anonima
+        Reportar de forma anónima
         <small v-if="requiresEmail" class="queja-form__checkbox-hint">
-          (no disponible para esta categoria)
+          (no disponible para esta categoría)
         </small>
       </span>
     </label>

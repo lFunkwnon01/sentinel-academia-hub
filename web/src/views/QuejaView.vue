@@ -16,7 +16,7 @@ async function onSubmit(input: CreateQuejaInput) {
   try {
     const result = await quejaService.create(input);
     lastResult.value = result;
-    notifications.success(`Queja ${result.quejaId.slice(0, 8)} enviada. Sera analizada en ~30 segundos.`);
+    notifications.success(`Queja ${result.quejaId.slice(0, 8)} enviada. Será analizada en ~30 segundos.`);
   } catch (e) {
     notifications.error(e instanceof Error ? e.message : 'Error al enviar la queja');
   } finally {
@@ -43,9 +43,9 @@ function verDashboard() {
         <code class="queja-view__id">{{ lastResult.quejaId }}</code>
       </p>
       <p>
-        El analisis automatico se completara en aproximadamente
+        El análisis automático se completará en aproximadamente
         <strong>{{ lastResult.estimatedAnalysisTime ?? 30 }} segundos</strong>.
-        Si es un caso critico, se notificara a bienestar inmediatamente.
+        Si es un caso crítico, se notificará a bienestar inmediatamente.
       </p>
       <div class="queja-view__success-actions">
         <button class="queja-view__btn-secondary" @click="lastResult = null">
