@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { computed } from 'vue';
+
 interface Props {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'success';
   size?: 'sm' | 'md' | 'lg';
@@ -22,6 +24,36 @@ const emit = defineEmits<{
   click: [event: MouseEvent];
 }>();
 
+const variantClass = computed(() => {
+  switch (props.variant) {
+    case 'primary':
+      return 'bg-brand-600 text-white shadow-soft hover:bg-brand-700 hover:shadow-lift focus:ring-brand-500';
+    case 'secondary':
+      return 'bg-white text-ink-700 border border-ink-300 hover:bg-ink-50 hover:border-ink-400 focus:ring-brand-500';
+    case 'danger':
+      return 'bg-danger-500 text-white hover:bg-danger-700 focus:ring-danger-500';
+    case 'ghost':
+      return 'bg-transparent text-ink-600 hover:bg-ink-100 hover:text-ink-900 focus:ring-brand-500';
+    case 'success':
+      return 'bg-success-500 text-white hover:bg-success-700 focus:ring-success-500';
+    default:
+      return '';
+  }
+});
+
+const sizeClass = computed(() => {
+  switch (props.size) {
+    case 'sm':
+      return 'px-3 py-1.5 text-sm min-h-[32px]';
+    case 'md':
+      return 'px-4 py-2.5 text-sm min-h-[40px]';
+    case 'lg':
+      return 'px-6 py-3 text-base min-h-[48px]';
+    default:
+      return '';
+  }
+});
+
 function onClick(event: MouseEvent) {
   if (!props.disabled && !props.loading) {
     emit('click', event);
@@ -35,118 +67,28 @@ function onClick(event: MouseEvent) {
     :disabled="disabled || loading"
     :aria-busy="loading"
     :aria-label="ariaLabel"
-    :class="['app-button', `app-button--${variant}`, `app-button--${size}`, { 'app-button--block': block, 'app-button--loading': loading }]"
+    :class="[
+      'inline-flex items-center justify-center gap-2',
+      'font-medium rounded-lg whitespace-nowrap select-none',
+      'transition-all duration-150',
+      'focus:outline-none focus:ring-2 focus:ring-offset-2',
+      'disabled:opacity-50 disabled:cursor-not-allowed',
+      variantClass,
+      sizeClass,
+      block ? 'w-full' : ''
+    ]"
     @click="onClick"
   >
-    <span v-if="loading" class="app-button__spinner" aria-hidden="true" />
-    <span class="app-button__content">
-      <slot />
-    </span>
+    <svg
+      v-if="loading"
+      class="animate-spin w-4 h-4 flex-shrink-0"
+      fill="none"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg>
+    <slot />
   </button>
 </template>
-
-<style scoped>
-.app-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  font-weight: var(--font-medium);
-  border-radius: var(--radius-md);
-  transition: all var(--transition-fast);
-  white-space: nowrap;
-  user-select: none;
-  border: 1px solid transparent;
-}
-
-.app-button--block {
-  width: 100%;
-}
-
-.app-button--sm {
-  padding: var(--space-1) var(--space-3);
-  font-size: var(--text-sm);
-  min-height: 32px;
-}
-
-.app-button--md {
-  padding: var(--space-2) var(--space-4);
-  font-size: var(--text-base);
-  min-height: 40px;
-}
-
-.app-button--lg {
-  padding: var(--space-3) var(--space-6);
-  font-size: var(--text-lg);
-  min-height: 48px;
-}
-
-.app-button--primary {
-  background: var(--color-primary);
-  color: var(--color-text-inverse);
-}
-
-.app-button--primary:hover:not(:disabled) {
-  background: var(--color-primary-hover);
-}
-
-.app-button--secondary {
-  background: var(--color-bg-elevated);
-  color: var(--color-text);
-  border-color: var(--color-border);
-}
-
-.app-button--secondary:hover:not(:disabled) {
-  background: var(--color-bg-muted);
-  border-color: var(--color-border-strong);
-}
-
-.app-button--danger {
-  background: var(--color-danger);
-  color: var(--color-text-inverse);
-}
-
-.app-button--danger:hover:not(:disabled) {
-  background: var(--color-danger-hover);
-}
-
-.app-button--ghost {
-  background: transparent;
-  color: var(--color-text);
-}
-
-.app-button--ghost:hover:not(:disabled) {
-  background: var(--color-bg-muted);
-}
-
-.app-button--success {
-  background: var(--color-success);
-  color: var(--color-text-inverse);
-}
-
-.app-button--success:hover:not(:disabled) {
-  background: #059669;
-}
-
-.app-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.app-button__spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
-}
-
-.app-button--loading .app-button__content {
-  opacity: 0.7;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-</style>

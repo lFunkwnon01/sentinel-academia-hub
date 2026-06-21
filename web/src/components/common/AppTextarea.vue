@@ -37,6 +37,7 @@ const describedBy = computed(() => {
 });
 
 const charCount = computed(() => props.modelValue?.length ?? 0);
+const isWarn = computed(() => props.maxlength ? charCount.value > props.maxlength * 0.9 : false);
 
 function onInput(event: Event) {
   const target = event.target as HTMLTextAreaElement;
@@ -45,10 +46,10 @@ function onInput(event: Event) {
 </script>
 
 <template>
-  <div :class="['app-textarea', { 'app-textarea--error': error, 'app-textarea--disabled': disabled }]">
-    <label v-if="label" :for="inputId" class="app-textarea__label">
+  <div class="w-full">
+    <label v-if="label" :for="inputId" class="block text-sm font-medium text-ink-800 mb-1.5">
       {{ label }}
-      <span v-if="required" class="app-textarea__required" aria-hidden="true">*</span>
+      <span v-if="required" class="text-danger-500 ml-0.5" aria-hidden="true">*</span>
     </label>
     <textarea
       :id="inputId"
@@ -62,86 +63,38 @@ function onInput(event: Event) {
       :aria-invalid="!!error"
       :aria-describedby="describedBy"
       :aria-required="required"
-      class="app-textarea__field"
+      :class="[
+        'w-full px-4 py-3 text-sm text-ink-900 placeholder:text-ink-400',
+        'bg-white border rounded-lg shadow-soft',
+        'transition-all duration-150 resize-y',
+        'focus:outline-none focus:ring-2 focus:ring-offset-0',
+        'disabled:bg-ink-50 disabled:text-ink-500 disabled:cursor-not-allowed',
+        error
+          ? 'border-danger-400 focus:border-danger-500 focus:ring-danger-200'
+          : 'border-ink-300 hover:border-ink-400 focus:border-brand-500 focus:ring-brand-100'
+      ]"
       @input="onInput"
       @blur="emit('blur')"
     />
-    <div v-if="hint || error || maxlength" class="app-textarea__meta">
-      <span v-if="hint" :id="hintId" class="app-textarea__hint">{{ hint }}</span>
-      <span v-if="error" :id="errorId" class="app-textarea__error" role="alert">{{ error }}</span>
-      <span v-if="maxlength" class="app-textarea__count" :class="{ 'app-textarea__count--warn': charCount > maxlength * 0.9 }">
+    <div v-if="hint || error || maxlength" class="flex items-start justify-between gap-2 mt-1.5 text-xs">
+      <div class="flex-1 min-w-0">
+        <p v-if="hint && !error" :id="hintId" class="text-ink-500">{{ hint }}</p>
+        <p v-if="error" :id="errorId" class="text-danger-600 font-medium flex items-center gap-1" role="alert">
+          <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+          </svg>
+          {{ error }}
+        </p>
+      </div>
+      <span
+        v-if="maxlength"
+        :class="[
+          'tabular-nums font-medium flex-shrink-0',
+          isWarn ? 'text-warning-600' : 'text-ink-400'
+        ]"
+      >
         {{ charCount }}/{{ maxlength }}
       </span>
     </div>
   </div>
 </template>
-
-<style scoped>
-.app-textarea {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  width: 100%;
-}
-
-.app-textarea__label {
-  font-size: var(--text-sm);
-  font-weight: var(--font-medium);
-  color: var(--color-text);
-}
-
-.app-textarea__required {
-  color: var(--color-danger);
-  margin-left: var(--space-1);
-}
-
-.app-textarea__field {
-  width: 100%;
-  padding: var(--space-3) var(--space-4);
-  font-size: var(--text-base);
-  font-family: var(--font-sans);
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  transition: all var(--transition-fast);
-  resize: vertical;
-  min-height: 80px;
-  line-height: var(--leading-normal);
-}
-
-.app-textarea__field::placeholder {
-  color: var(--color-text-subtle);
-}
-
-.app-textarea__field:hover:not(:disabled) {
-  border-color: var(--color-border-strong);
-}
-
-.app-textarea__field:focus-visible {
-  outline: none;
-  border-color: var(--color-border-focus);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-}
-
-.app-textarea--error .app-textarea__field {
-  border-color: var(--color-danger);
-}
-
-.app-textarea--disabled .app-textarea__field {
-  background: var(--color-bg-muted);
-  cursor: not-allowed;
-}
-
-.app-textarea__meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-xs);
-}
-
-.app-textarea__hint { color: var(--color-text-muted); }
-.app-textarea__error { color: var(--color-danger); font-weight: var(--font-medium); }
-.app-textarea__count { color: var(--color-text-muted); font-variant-numeric: tabular-nums; margin-left: auto; }
-.app-textarea__count--warn { color: var(--color-warning); font-weight: var(--font-medium); }
-</style>
