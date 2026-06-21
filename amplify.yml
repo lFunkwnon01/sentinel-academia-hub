@@ -4,10 +4,10 @@ frontend:
   phases:
     preBuild:
       commands:
-        - cd web && npm install
+        - npm --prefix web install
     build:
       commands:
-        - cd web && npx vite build
+        - npm --prefix web run build
   artifacts:
     baseDirectory: web/dist
     files:
