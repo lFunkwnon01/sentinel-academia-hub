@@ -13,12 +13,13 @@ frontend:
     baseDirectory: web/dist
     files:
       - "**/*"
+  cache:
+    paths:
+      - node_modules/**/*
 
-# SPA fallback: cualquier ruta sin extensión debe ser servida por index.html
+# Single Page App: todas las rutas sin extensión deben ser servidas por index.html
+# para que Vue Router pueda tomar el control desde el cliente
 redirects:
-  - source: /<*>
-    target: /index.html
-    status: '200'
-  - source: </^.*$>
+  - source: </^[^.]+$>
     target: /index.html
     status: '200'
