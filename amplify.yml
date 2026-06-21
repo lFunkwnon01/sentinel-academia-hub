@@ -18,4 +18,4 @@ frontend:
 redirects:
   - source: /<*>
     target: /index.html
-    status: '404'
+    status: '200'
