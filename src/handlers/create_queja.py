@@ -108,22 +108,22 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 
         # 2b. Category-specific business rules
         # - ACADEMICA requires cursoCodigo
-        # - ACOSO/ADMINISTRATIVA/SALUD/ACADEMICA require contactoEmail
+        # - ACOSO/ADMINISTRATIVA/SALUD require contactoEmail
         #   (cannot be anonymous, because 1 single queja is enough to act on)
-        # - INFRAESTRUCTURA may be anonymous (waits for sample size = 10)
+        # - INFRAESTRUCTURA and OTRA may be anonymous
         cat = input_data.categoriaDeclarada.value
         business_errors: list[dict[str, str]] = []
         if cat == "ACADEMICA" and not input_data.cursoCodigo:
             business_errors.append({
                 "field": "cursoCodigo",
-                "message": "El codigo del curso es obligatorio para quejas ACADEMICA",
+                "message": "El código del curso es obligatorio para quejas ACADÉMICA",
             })
-        if cat != "INFRAESTRUCTURA":
+        if cat in ("ACADEMICA", "ACOSO", "ADMINISTRATIVA", "SALUD"):
             if input_data.anonima:
                 business_errors.append({
                     "field": "anonima",
                     "message": (
-                        f"Las quejas de tipo {cat} no pueden ser anonimas "
+                        f"Las quejas de tipo {cat} no pueden ser anónimas "
                         "porque se procesan individualmente"
                     ),
                 })
