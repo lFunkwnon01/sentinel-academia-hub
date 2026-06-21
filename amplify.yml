@@ -19,14 +19,13 @@ frontend:
     paths:
       - web/node_modules/**/*
 
-# SPA fallback: cualquier ruta que no apunte a un archivo estático
-# (sin punto en el path) debe ser servida por index.html para que
-# Vue Router pueda tomar el control desde el cliente.
+# SPA fallback: cualquier ruta sin extensión debe ser servida por index.html
+# para que Vue Router pueda tomar el control desde el cliente.
 # Esto cubre URLs como /queja, /queja/, /dashboard, etc.
 redirects:
-  - source: "</^[^.]+$/>"
+  - source: "/<*>"
     target: "/index.html"
-    status: "200"
+    status: "404"
 
 customHeaders:
   - pattern: "**/*"
