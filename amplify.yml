@@ -4,35 +4,17 @@ frontend:
   phases:
     preBuild:
       commands:
-        - cd web && npm ci
+        - cd web && npm install
     build:
       commands:
         - cd web && npx vite build
-    postBuild:
-      commands:
-        - echo "Build complete"
   artifacts:
     baseDirectory: web/dist
     files:
       - "**/*"
-  cache:
-    paths:
-      - web/node_modules/**/*
 
 # SPA fallback: cualquier ruta sin extensión debe ser servida por index.html
-# para que Vue Router pueda tomar el control desde el cliente.
-# Esto cubre URLs como /queja, /queja/, /dashboard, etc.
 redirects:
-  - source: "/<*>"
-    target: "/index.html"
-    status: "404"
-
-customHeaders:
-  - pattern: "**/*"
-    headers:
-      - key: Cache-Control
-        value: "public, max-age=31536000, immutable"
-  - pattern: "index.html"
-    headers:
-      - key: Cache-Control
-        value: "no-cache, no-store, must-revalidate"
+  - source: /<*>
+    target: /index.html
+    status: '404'
