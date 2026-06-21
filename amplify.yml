@@ -7,7 +7,7 @@ frontend:
         - npm --prefix web install
     build:
       commands:
-        - npm --prefix web run build
+        - npx --prefix web vite build
   artifacts:
     baseDirectory: web/dist
     files:
