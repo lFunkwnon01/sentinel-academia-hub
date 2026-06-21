@@ -1,5 +1,6 @@
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { chatService } from '@/services/chatService';
+import { useTenantStore } from '@/stores/tenant';
 import type { ChatMessageUI, ChatSource } from '@/types/api';
 import { generateUUID } from '@/utils/uuid';
 
@@ -8,6 +9,19 @@ export function useChat() {
   const loading = ref(false);
   const error = ref<string | null>(null);
   const conversationId = ref<string | undefined>(undefined);
+  const tenantStore = useTenantStore();
+
+  // Cuando cambia el tenant activo, limpiamos el historial del chat
+  // para no mezclar contexto entre universidades distintas.
+  watch(
+    () => tenantStore.tenantId,
+    (newId, oldId) => {
+      if (oldId && newId !== oldId) {
+        messages.value = [];
+        conversationId.value = undefined;
+      }
+    }
+  );
 
   function addMessage(message: Omit<ChatMessageUI, 'id' | 'timestamp'>): ChatMessageUI {
     const fullMessage: ChatMessageUI = {

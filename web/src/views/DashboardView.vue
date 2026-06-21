@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue';
+import { onMounted, ref, computed, watch } from 'vue';
 import { dashboardService } from '@/services/dashboardService';
 import { useNotificationStore } from '@/stores/notifications';
+import { useTenantStore } from '@/stores/tenant';
 import type { DashboardMetrics, QuejaListItem } from '@/types/api';
 import CriticidadIndicator from '@/components/domain/CriticidadIndicator.vue';
 
 const notifications = useNotificationStore();
+const tenantStore = useTenantStore();
 const metrics = ref<DashboardMetrics | null>(null);
 const quejas = ref<QuejaListItem[]>([]);
 const loading = ref(false);
@@ -106,6 +108,16 @@ function statusClass(s?: string): string {
 }
 
 onMounted(fetchAll);
+
+// Re-fetch automático cuando cambia el tenant activo
+watch(
+  () => tenantStore.tenantId,
+  () => {
+    metrics.value = null;
+    quejas.value = [];
+    fetchAll();
+  }
+);
 </script>
 
 <template>

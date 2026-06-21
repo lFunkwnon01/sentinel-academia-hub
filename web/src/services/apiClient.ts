@@ -12,7 +12,9 @@ export const apiClient: AxiosInstance = axios.create({
   },
 });
 
-// Interceptor: agregar correlationId y X-Tenant-ID (de sessionStorage) a cada request
+// Interceptor: agregar correlationId y X-Tenant-ID a cada request.
+// Se leen en cada request (no en creación) para que un cambio de tenant
+// se refleje de inmediato sin necesidad de recargar la página.
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   let correlationId = sessionStorage.getItem('correlationId');
   if (!correlationId) {
@@ -20,7 +22,7 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     sessionStorage.setItem('correlationId', correlationId);
   }
   config.headers.set('x-correlation-id', correlationId);
-  // Tenant viene de sessionStorage (configurado via login/email o setTenant())
+  // Tenant siempre se lee fresco del sessionStorage en cada request
   const tenant = getSessionTenant();
   config.headers.set('X-Tenant-ID', tenant.tenantId);
   return config;
@@ -43,9 +45,9 @@ apiClient.interceptors.response.use(
     } else if (status && status >= 500) {
       message = 'Error del servidor. Intenta de nuevo.';
     } else if (error.code === 'ECONNABORTED') {
-      message = 'La solicitud tardo demasiado. Intenta de nuevo.';
+      message = 'La solicitud tardó demasiado. Intenta de nuevo.';
     } else if (error.message === 'Network Error') {
-      message = 'No se pudo conectar al servidor. Verifica tu conexion.';
+      message = 'No se pudo conectar al servidor. Verifica tu conexión.';
     }
 
     return Promise.reject(new Error(message));

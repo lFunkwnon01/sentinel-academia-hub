@@ -1,15 +1,14 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { RouterView, RouterLink, useRoute } from 'vue-router';
 import { useNotificationStore } from '@/stores/notifications';
-import { detectTenantFromEmail, getSessionTenant, listAvailableTenants } from '@/utils/tenant';
+import { getSessionTenant } from '@/utils/tenant';
+import { useTenantStore } from '@/stores/tenant';
 import AppToast from '@/components/common/AppToast.vue';
-import { onMounted } from 'vue';
 
 const notifications = useNotificationStore();
 const route = useRoute();
-const currentTenant = ref(getSessionTenant());
-const availableTenants = listAvailableTenants();
+const tenantStore = useTenantStore();
 const showTenantMenu = ref(false);
 
 const navItems = [
@@ -20,24 +19,48 @@ const navItems = [
 ];
 
 function selectTenant(tenantId: string) {
-  const tenant = availableTenants.find(t => t.tenantId === tenantId);
-  if (tenant) {
-    currentTenant.value = { ...tenant, source: 'session' };
-    localStorage.setItem('sentinel.tenant', JSON.stringify(currentTenant.value));
+  if (tenantStore.tenantId === tenantId) {
     showTenantMenu.value = false;
-    location.reload();
+    return;
+  }
+  tenantStore.selectTenant(tenantId);
+  showTenantMenu.value = false;
+  const t = tenantStore.current;
+  notifications.success(`Tenant cambiado a: ${t.name}`);
+  // NO recargar la página: el store es reactivo y el apiClient
+  // lee el tenant actual en cada request desde sessionStorage.
+  // Los componentes que tengan datos cacheados deben re-fetchearse
+  // observando el cambio de tenant (ver watchers en cada view).
+}
+
+// Cerrar el menú al hacer click fuera
+const sidebarRef = ref<HTMLElement | null>(null);
+function onClickOutside(event: MouseEvent) {
+  if (!showTenantMenu.value) return;
+  const target = event.target as HTMLElement;
+  if (sidebarRef.value && !sidebarRef.value.contains(target)) {
+    showTenantMenu.value = false;
   }
 }
 
 onMounted(() => {
-  currentTenant.value = getSessionTenant();
+  // Inicializar store desde sessionStorage
+  tenantStore.refresh();
+  document.addEventListener('click', onClickOutside);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', onClickOutside);
 });
 </script>
 
 <template>
   <div class="min-h-screen bg-ink-50 flex">
     <!-- Sidebar -->
-    <aside class="w-64 bg-white border-r border-ink-200 flex flex-col fixed inset-y-0 left-0 z-30">
+    <aside
+      ref="sidebarRef"
+      class="w-64 bg-white border-r border-ink-200 flex flex-col fixed inset-y-0 left-0 z-30"
+    >
       <RouterLink to="/" class="flex items-center gap-2.5 px-5 h-16 border-b border-ink-200 hover:bg-ink-50">
         <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-600 to-brand-800 flex items-center justify-center shadow-soft">
           <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -53,31 +76,52 @@ onMounted(() => {
       <!-- Tenant selector -->
       <div class="px-3 pt-3">
         <button
-          @click="showTenantMenu = !showTenantMenu"
+          @click.stop="showTenantMenu = !showTenantMenu"
           class="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-ink-50 hover:bg-ink-100 transition-colors text-left"
         >
           <div class="flex items-center gap-2 min-w-0">
-            <div class="w-7 h-7 rounded-md bg-brand-100 text-brand-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
-              {{ currentTenant.tenantId.replace('demo-', '').toUpperCase() }}
+            <div class="w-7 h-7 rounded-md bg-brand-100 text-brand-700 flex items-center justify-center text-[10px] font-bold flex-shrink-0">
+              {{ tenantStore.current.tenantId.replace('demo-', '').toUpperCase() }}
             </div>
             <div class="min-w-0">
-              <div class="text-xs font-medium text-ink-900 truncate">{{ currentTenant.name }}</div>
+              <div class="text-xs font-medium text-ink-900 truncate">{{ tenantStore.current.name }}</div>
               <div class="text-[10px] text-ink-500 truncate">Tenant activo</div>
             </div>
           </div>
-          <svg class="w-4 h-4 text-ink-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"/>
+          <svg
+            :class="['w-4 h-4 text-ink-400 flex-shrink-0 transition-transform', showTenantMenu ? 'rotate-180' : '']"
+            fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/>
           </svg>
         </button>
-        <div v-if="showTenantMenu" class="mt-1 bg-white border border-ink-200 rounded-lg shadow-lift overflow-hidden">
+        <div
+          v-if="showTenantMenu"
+          class="mt-1 bg-white border border-ink-200 rounded-lg shadow-lift overflow-hidden"
+        >
           <button
-            v-for="t in availableTenants"
+            v-for="t in tenantStore.available"
             :key="t.tenantId"
             @click="selectTenant(t.tenantId)"
-            class="w-full text-left px-3 py-2 hover:bg-ink-50 text-xs"
-            :class="t.tenantId === currentTenant.tenantId ? 'bg-brand-50 text-brand-700 font-medium' : 'text-ink-700'"
+            :class="[
+              'w-full text-left px-3 py-2 hover:bg-ink-50 text-xs flex items-center gap-2 transition-colors',
+              t.tenantId === tenantStore.tenantId ? 'bg-brand-50 text-brand-700 font-medium' : 'text-ink-700'
+            ]"
           >
-            {{ t.name }}
+            <span
+              :class="[
+                'w-5 h-5 rounded text-[9px] font-bold flex items-center justify-center flex-shrink-0',
+                t.tenantId === tenantStore.tenantId ? 'bg-brand-200 text-brand-800' : 'bg-ink-100 text-ink-600'
+              ]"
+            >{{ t.tenantId.replace('demo-', '').toUpperCase() }}</span>
+            <span class="truncate">{{ t.name }}</span>
+            <svg
+              v-if="t.tenantId === tenantStore.tenantId"
+              class="w-3.5 h-3.5 ml-auto text-brand-600 flex-shrink-0"
+              fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+            </svg>
           </button>
         </div>
       </div>

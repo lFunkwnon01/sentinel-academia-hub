@@ -6,10 +6,12 @@ import AppInput from '@/components/common/AppInput.vue';
 import AppTextarea from '@/components/common/AppTextarea.vue';
 import AppSelect from '@/components/common/AppSelect.vue';
 import type { CreateQuejaInput, Categoria } from '@/types/api';
-import { detectTenantFromEmail, setSessionTenant } from '@/utils/tenant';
+import { detectTenantFromEmail } from '@/utils/tenant';
 import { useNotificationStore } from '@/stores/notifications';
+import { useTenantStore } from '@/stores/tenant';
 
 const notifications = useNotificationStore();
+const tenantStore = useTenantStore();
 
 const Schema = z.object({
   titulo: z.string().min(5, 'Mínimo 5 caracteres').max(120, 'Máximo 120 caracteres'),
@@ -143,7 +145,9 @@ watch(
     const tenant = detectTenantFromEmail(email);
     if (tenant) {
       detectedTenant.value = tenant;
-      setSessionTenant(tenant);
+      // Actualizamos el store reactivo (sin recargar) para que el
+      // apiClient use este tenant en el POST /api/quejas.
+      tenantStore.setTenant(tenant);
       notifications.info(`Universidad detectada: ${tenant.name}`);
     } else {
       detectedTenant.value = null;
