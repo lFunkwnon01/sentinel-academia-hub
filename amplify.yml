@@ -17,13 +17,10 @@ frontend:
     paths:
       - node_modules/**/*
 
-# Redirigir /path/ a /path (quitar trailing slash) con 301
+# SPA fallback: cualquier ruta sin extensión debe ser servida por index.html
+# Sintaxis: source es una regex delimitada por </>, status 200 sirve index.html
+# manteniendo el código 200 al cliente (rewrite).
 redirects:
-  - source: </^/(.*)/$>
-    target: /<>/1
-    status: '301'
-
-# SPA fallback: cualquier ruta debe ser servida por index.html
   - source: </^[^.]+$>
     target: /index.html
     status: '200'
