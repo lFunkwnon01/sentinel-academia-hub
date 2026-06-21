@@ -17,10 +17,9 @@ frontend:
     paths:
       - node_modules/**/*
 
-# SPA fallback: cualquier ruta sin extensión debe ser servida por index.html
-# Sintaxis: source es una regex delimitada por </>, status 200 sirve index.html
-# manteniendo el código 200 al cliente (rewrite).
+# SPA fallback: cualquier ruta sin extensión -> index.html (rewrite)
+# Usar status 404 con sintaxis simple de Amplify (sin regex compleja)
 redirects:
-  - source: </^[^.]+$>
+  - source: /<*>
     target: /index.html
-    status: '200'
+    status: '404'
