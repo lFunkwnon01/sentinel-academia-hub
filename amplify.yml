@@ -17,9 +17,13 @@ frontend:
     paths:
       - node_modules/**/*
 
-# Single Page App: todas las rutas sin extensión deben ser servidas por index.html
-# para que Vue Router pueda tomar el control desde el cliente
+# Redirigir /path/ a /path (quitar trailing slash) con 301
 redirects:
+  - source: </^/(.*)/$>
+    target: /<>/1
+    status: '301'
+
+# SPA fallback: cualquier ruta debe ser servida por index.html
   - source: </^[^.]+$>
     target: /index.html
     status: '200'
